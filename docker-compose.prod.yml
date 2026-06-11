@@ -1,0 +1,113 @@
+# ChampSet — production stack for a single VPS with Docker Compose.
+# Persistent storage lives in the named volumes (pgdata, convex_data) on the
+# host disk. TLS is terminated by Caddy (automatic Let's Encrypt).
+#
+# Required DNS (all A records -> your server IP):
+#   app.${DOMAIN}          -> frontend
+#   api.${DOMAIN}          -> backend
+#   convex.${DOMAIN}       -> Convex backend (browser connects here directly)
+#   convex-site.${DOMAIN}  -> Convex HTTP actions
+#
+# Copy .env.prod.example to .env, fill it in, then:  docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [frontend, backend, convex]
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-champset}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-champset_internal}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-champset} -d ${POSTGRES_DB:-champset_internal}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  convex:
+    image: ghcr.io/get-convex/convex-backend:latest
+    restart: unless-stopped
+    environment:
+      # PUBLIC origins — the browser talks to Convex directly at these URLs.
+      CONVEX_CLOUD_ORIGIN: https://convex.${DOMAIN}
+      CONVEX_SITE_ORIGIN: https://convex-site.${DOMAIN}
+      POSTGRES_URL: postgresql://${POSTGRES_USER:-champset}:${POSTGRES_PASSWORD}@db:5432
+      DO_NOT_REQUIRE_SSL: 1
+      INSTANCE_NAME: convex-self-hosted
+      DISABLE_BEACON: "true"
+    volumes:
+      - convex_data:/convex/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: https://searxng.${DOMAIN}/
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_OPTIONS: --no-network-family-autoselection
+      CLIENT_ORIGIN: https://app.${DOMAIN}
+      CONVEX_URL: http://convex:3210
+      PORT: 3501
+      SEARXNG_URL: http://searxng:8080
+      CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
+      CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      SCHEMA_INFERENCE_MODEL: ${SCHEMA_INFERENCE_MODEL:-anthropic/claude-sonnet-4.6}
+      POPULATE_ORCHESTRATOR_MODEL: ${POPULATE_ORCHESTRATOR_MODEL:-qwen/qwen3.7-max}
+      INVESTIGATE_SUBAGENT_MODEL: ${INVESTIGATE_SUBAGENT_MODEL:-qwen/qwen3.7-max}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-ChampSet <noreply@championsmail.com>}
+    depends_on:
+      convex:
+        condition: service_started
+      searxng:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_CONVEX_URL: https://convex.${DOMAIN}
+        NEXT_PUBLIC_BACKEND_URL: https://api.${DOMAIN}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+    restart: unless-stopped
+    depends_on: [backend]
+
+volumes:
+  pgdata:
+  convex_data:
+  caddy_data:
+  caddy_config:

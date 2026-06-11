@@ -1,0 +1,23 @@
+# ChampSet reverse proxy with automatic HTTPS (Let's Encrypt).
+# DOMAIN and ACME_EMAIL are injected from the environment by docker-compose.prod.yml.
+{
+	email {$ACME_EMAIL}
+}
+
+app.{$DOMAIN} {
+	reverse_proxy frontend:3500
+}
+
+api.{$DOMAIN} {
+	reverse_proxy backend:3501
+}
+
+# The browser's Convex client connects here directly.
+convex.{$DOMAIN} {
+	reverse_proxy convex:3210
+}
+
+# Convex HTTP actions endpoint.
+convex-site.{$DOMAIN} {
+	reverse_proxy convex:3211
+}
