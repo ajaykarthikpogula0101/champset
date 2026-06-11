@@ -62,7 +62,7 @@ export default function Home() {
             <img src="/champset-logo.svg" alt="ChampSet" className="h-12 mx-auto dark:hidden" />
             <img src="/champset-logo-dark.svg" alt="ChampSet" className="h-12 mx-auto hidden dark:block" />
             <p className="text-xl leading-relaxed text-foreground/80">
-              Live, queryable datasets — described in plain English, kept fresh by web agents.
+              Live, queryable datasets, described in plain English, kept fresh by web agents.
             </p>
             <div className="flex justify-center">
               <Link
@@ -87,7 +87,7 @@ export default function Home() {
                   Explore live datasets
                 </h2>
                 <p className="mt-3 text-sm text-muted max-w-lg">
-                  Nine datasets we maintain ourselves — refreshed automatically, queryable now.
+                  Nine datasets we maintain ourselves, refreshed automatically, queryable now.
                 </p>
               </div>
             </div>

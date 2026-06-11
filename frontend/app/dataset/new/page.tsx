@@ -391,7 +391,7 @@ export default function NewDatasetPage() {
                         {col.isPrimaryKey && (
                           <span
                             className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                            title="Primary key — uniquely identifies each row"
+                            title="Primary key, uniquely identifies each row"
                           >
                             PK
                           </span>

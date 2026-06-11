@@ -1,4 +1,4 @@
-<svg width="1200" height="280" viewBox="0 0 1200 280" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ChampSet — a Champions Group product">
+<svg width="1200" height="280" viewBox="0 0 1200 280" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ChampSet, a Champions Group product">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="280" gradientUnits="userSpaceOnUse">
       <stop stop-color="#FFFFFF"/>
@@ -22,7 +22,7 @@
     <tspan fill="#1A1A1A">Champ</tspan><tspan fill="#F26722">Set</tspan>
   </text>
   <text x="202" y="196" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="24" font-weight="500" fill="#6B6B6B">
-    Live, refreshing datasets from the web — described in plain English.
+    Live, refreshing datasets from the web, described in plain English.
   </text>
   <text x="202" y="232" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="1.5" fill="#F26722">
     A CHAMPIONS GROUP PRODUCT

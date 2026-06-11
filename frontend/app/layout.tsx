@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "ChampSet",
-  description: "Live, refreshing datasets from the web — a Champions Group product",
+  description: "Live, refreshing datasets from the web. A Champions Group product.",
 };
 
 /**

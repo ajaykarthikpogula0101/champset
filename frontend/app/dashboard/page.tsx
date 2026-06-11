@@ -27,7 +27,7 @@ export default function DashboardPage() {
   // Public datasets are open to anonymous users too, so no `skip` gate.
   const curated = useQuery(api.datasets.listPublic, {});
 
-  // Quota state drives the "+ New Dataset" button — disabled when the
+  // Quota state drives the "+ New Dataset" button, disabled when the
   // user is at their free-tier limit. `undefined` while loading.
   const usage = useQuery(
     api.quota.getMy,
@@ -94,7 +94,7 @@ export default function DashboardPage() {
             Your Datasets
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Live, updating datasets — powered by web agents.
+            Live, updating datasets, powered by web agents.
           </p>
         </div>
 
@@ -120,7 +120,7 @@ export default function DashboardPage() {
               onChange={(e) => setSearch(e.target.value)}
               onBlur={() => {
                 // Fire on blur, not every keystroke. Send length, not the
-                // query string itself — search terms can be sensitive
+                // query string itself, search terms can be sensitive
                 // ("looking for a job at X"). Length is enough for the funnel.
                 if (search.trim().length > 0) {
                   track(EVENTS.DATASET_SEARCH_USED, {

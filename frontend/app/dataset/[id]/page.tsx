@@ -67,7 +67,7 @@ export default function DatasetPage() {
 
   const handlePopulate = useCallback(async () => {
     if (!dataset || populating || dataset.status === "building") return;
-    // A new run is starting — discard any lingering stop-latch from the previous run.
+    // A new run is starting, discard any lingering stop-latch from the previous run.
     setStopping(false);
     setPopulating(true);
     try {
@@ -169,7 +169,7 @@ export default function DatasetPage() {
 
   async function handleUpdate() {
     if (!dataset || updating || dataset.status === "building" || dataset.status === "updating") return;
-    // A new run is starting — discard any lingering stop-latch from the previous run.
+    // A new run is starting, discard any lingering stop-latch from the previous run.
     setStopping(false);
     setUpdating(true);
     try {
@@ -283,7 +283,7 @@ export default function DatasetPage() {
         operation: "dataset_stop",
         datasetId: dataset._id,
       });
-      // Request failed — clear immediately so the user can retry.
+      // Request failed, clear immediately so the user can retry.
       setStopping(false);
     }
   }
@@ -312,7 +312,7 @@ export default function DatasetPage() {
   }
   // Past this point `dataset` and `rows` are always defined. If the
   // server-side authz layer rejected the request, `useQuery` would have
-  // thrown instead — caught by /dataset/[id]/error.tsx, which renders
+  // thrown instead, caught by /dataset/[id]/error.tsx, which renders
   // the "Dataset not found" UI.
 
   const exportDisabled = exporting !== null || rows.length === 0;
