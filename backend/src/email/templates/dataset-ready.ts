@@ -20,7 +20,7 @@ export function datasetReadyTemplate(params: DatasetReadyParams): EmailTemplate 
   const formattedRowCount = params.rowCount.toLocaleString();
   const rowLabel = params.rowCount === 1 ? "row" : "rows";
 
-  const subject = `BigSet: "${sanitizeSubjectText(params.datasetName)}" is ready`;
+  const subject = `ChampSet: "${sanitizeSubjectText(params.datasetName)}" is ready`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -37,12 +37,12 @@ export function datasetReadyTemplate(params: DatasetReadyParams): EmailTemplate 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f3ee;">
       <tr>
         <td align="center" style="padding:40px 16px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #dedbd2;border-radius:8px;border-top:4px solid #1d1b16;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;background:#ffffff;border:1px solid #efdfd2;border-radius:8px;border-top:4px solid #f26722;">
             <tr>
               <td style="padding:26px 30px 0;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td align="left" style="font-size:19px;font-weight:800;color:#1d1b16;">BigSet}</td>
+                    <td align="left" style="font-size:19px;font-weight:800;color:#1a1a1a;">Champ<span style="color:#f26722;">Set</span></td>
                     <td align="right">
                       <span style="display:inline-block;border:1px solid #a9ddc4;background:#eefaf4;color:#04724d;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Dataset ready</span>
                     </td>
@@ -60,7 +60,7 @@ export function datasetReadyTemplate(params: DatasetReadyParams): EmailTemplate 
             <tr>
               <td style="padding:0 30px 18px;">
                 <p style="margin:0;color:#6f7169;font-size:15px;line-height:1.55;">
-                  BigSet finished populating your dataset. Open it to review the table, spot-check sources, or export the rows.
+                  ChampSet finished populating your dataset. Open it to review the table, spot-check sources, or export the rows.
                 </p>
               </td>
             </tr>
@@ -88,14 +88,14 @@ export function datasetReadyTemplate(params: DatasetReadyParams): EmailTemplate 
             </tr>
             <tr>
               <td style="padding:0 30px 34px;">
-                <a href="${safeUrl}" style="display:inline-block;padding:13px 22px;background:#1d1b16;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;border-radius:6px;">
+                <a href="${safeUrl}" style="display:inline-block;padding:13px 22px;background:#f26722;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;border-radius:6px;">
                   Open dataset
                 </a>
               </td>
             </tr>
             <tr>
               <td style="padding:18px 30px;border-top:1px solid #ece9df;color:#7c7f74;font-size:12px;line-height:1.5;">
-                BigSet by TinyFish - live, queryable datasets from the web.
+                ChampSet by Champions Group - live, refreshing datasets from the web.
               </td>
             </tr>
           </table>
@@ -106,7 +106,7 @@ export function datasetReadyTemplate(params: DatasetReadyParams): EmailTemplate 
 </html>`;
 
   const text = [
-    "BigSet dataset ready",
+    "ChampSet dataset ready",
     "",
     `${params.datasetName}`,
     `${formattedRowCount} ${rowLabel} generated`,
@@ -115,7 +115,7 @@ export function datasetReadyTemplate(params: DatasetReadyParams): EmailTemplate 
     "",
     `Open dataset: ${params.datasetUrl}`,
     "",
-    "BigSet by TinyFish",
+    "ChampSet by Champions Group",
   ].join("\n");
 
   return { subject, html, text };

@@ -51,7 +51,7 @@ export const env = {
   // a Resend account. EMAIL_FROM must be a domain that's verified in the
   // Resend dashboard.
   RESEND_API_KEY: process.env.RESEND_API_KEY,
-  EMAIL_FROM: process.env.EMAIL_FROM || "BigSet <simantak@tinyfish.ai>",
+  EMAIL_FROM: process.env.EMAIL_FROM || "ChampSet <noreply@championsmail.com>",
 
   // PostHog (server-side analytics for events the frontend can't observe —
   // currently just the transactional email lifecycle). Same project key

@@ -92,7 +92,7 @@ export function buildSubagentTool(
         if (rowCount >= maxRowCount) {
           return {
             inserted: false,
-            reason: `ROW_LIMIT_REACHED: this BigSet dataset is capped at ${maxRowCount} rows. Stop calling run_subagent and finish the run.`,
+            reason: `ROW_LIMIT_REACHED: this ChampSet dataset is capped at ${maxRowCount} rows. Stop calling run_subagent and finish the run.`,
             row_summary: undefined,
             clues: undefined,
           };

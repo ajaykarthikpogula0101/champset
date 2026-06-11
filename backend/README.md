@@ -1,4 +1,4 @@
-# BigSet Backend
+# ChampSet Backend
 
 Fastify server that handles auth, database, and talks to TinyFish APIs.
 

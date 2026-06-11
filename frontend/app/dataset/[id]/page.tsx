@@ -354,8 +354,8 @@ export default function DatasetPage() {
       <header className="border-b border-border px-5 py-2.5 flex items-center justify-between bg-surface shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/dashboard" className="hover:opacity-80 transition-opacity shrink-0">
-            <img src="/BigSetLogo.png" alt="BigSet" className="h-[24px] dark:hidden" />
-            <img src="/BigSetLogoDarkBG.png" alt="BigSet" className="h-[24px] hidden dark:block" />
+            <img src="/champset-logo.svg" alt="ChampSet" className="h-[24px] dark:hidden" />
+            <img src="/champset-logo-dark.svg" alt="ChampSet" className="h-[24px] hidden dark:block" />
           </Link>
           <svg width="8" height="20" viewBox="0 0 8 20" className="text-border shrink-0" aria-hidden="true">
             <line x1="7" y1="0" x2="1" y2="20" stroke="currentColor" strokeWidth="1.2" />
@@ -695,9 +695,7 @@ function SettingsDropdown({
             <p className={`mt-1 text-[11px] ${maxRowCountValidationError || maxRowCountSaveError ? "text-red-500" : "text-muted"}`}>
               {maxRowCountValidationError ??
                 maxRowCountSaveError ??
-                (maxRowCountRemaining !== undefined
-                  ? `${maxRowCountRemaining.toLocaleString()} row operations available`
-                  : "Applies to the next populate run")}
+                "Applies to the next populate run"}
             </p>
           </div>
           <div className="border-t border-border p-1">

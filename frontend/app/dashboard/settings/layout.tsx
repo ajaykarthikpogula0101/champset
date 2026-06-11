@@ -34,8 +34,8 @@ export default function SettingsLayout({
     <div className="flex flex-col h-screen">
       <header className="border-b border-border px-6 py-3 flex items-center justify-between bg-surface shrink-0">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <img src="/BigSetLogo.png" alt="BigSet" className="h-6.5 dark:hidden" />
-          <img src="/BigSetLogoDarkBG.png" alt="BigSet" className="h-6.5 hidden dark:block" />
+          <img src="/champset-logo.svg" alt="ChampSet" className="h-6.5 dark:hidden" />
+          <img src="/champset-logo-dark.svg" alt="ChampSet" className="h-6.5 hidden dark:block" />
         </Link>
 
         <div className="flex items-center gap-4">

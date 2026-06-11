@@ -227,8 +227,8 @@ export default function NewDatasetPage() {
       <header className="border-b border-border px-5 py-3 flex items-center justify-between bg-surface shrink-0">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
-            <img src="/BigSetLogo.png" alt="BigSet" className="h-[26px] dark:hidden" />
-            <img src="/BigSetLogoDarkBG.png" alt="BigSet" className="h-[26px] hidden dark:block" />
+            <img src="/champset-logo.svg" alt="ChampSet" className="h-[26px] dark:hidden" />
+            <img src="/champset-logo-dark.svg" alt="ChampSet" className="h-[26px] hidden dark:block" />
           </Link>
           <span className="text-foreground/15">/</span>
           <h1 className="text-sm font-semibold tracking-tight">New Dataset</h1>
@@ -364,11 +364,6 @@ export default function NewDatasetPage() {
                     }}
                     className="w-36 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm font-medium outline-none focus:border-foreground/30 transition-colors"
                   />
-                  {usage && (
-                    <p className="text-xs text-muted">
-                      Up to {usage.remaining.toLocaleString()} row operations available this month.
-                    </p>
-                  )}
                 </div>
               </div>
 

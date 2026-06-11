@@ -46,10 +46,11 @@ type AnyCtx =
 type WriteCtx = GenericMutationCtx<DataModel>;
 
 /**
- * Monthly free-tier limit. Hardcoded today; will move onto the `usage`
- * row (`plan` field + lookup table) when paid tiers exist.
+ * Monthly row-operation limit. Effectively unlimited: ChampSet runs as an
+ * internal Champions Group tool, so there is no credit/quota gating. The
+ * accounting code below still runs (usage is tracked) but never blocks.
  */
-export const FREE_TIER_MONTHLY_QUOTA = 2500;
+export const FREE_TIER_MONTHLY_QUOTA = 1_000_000_000;
 
 export class QuotaExceededError extends Error {
   constructor(consumed: number, limit: number, requested: number) {

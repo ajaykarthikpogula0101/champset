@@ -2,7 +2,9 @@ services:
   db:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      # Host 5432/5433 are used by other local projects; remap to 55433.
+      # Convex still reaches Postgres over the compose network at db:5432.
+      - "55433:5432"
     environment:
       POSTGRES_USER: bigset
       POSTGRES_PASSWORD: bigset
@@ -28,6 +30,11 @@ services:
       - ./backend/src:/app/src
       - ./scripts:/scripts:ro
     environment:
+      # Disable Happy-Eyeballs (autoSelectFamily). The container has no routable
+      # IPv6, so undici's parallel IPv6+IPv4 connect makes Node `fetch` fail
+      # ("fetch failed" / ETIMEDOUT) for external hosts — Clerk JWKS, OpenRouter.
+      # Forcing sequential family selection makes outbound fetch work.
+      NODE_OPTIONS: --no-network-family-autoselection
       CLIENT_ORIGIN: http://localhost:3500
       CONVEX_URL: http://convex:3210
       PORT: 3501
@@ -35,10 +42,12 @@ services:
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
       CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Open-source web backend. TINYFISH_API_KEY is no longer used.
+      SEARXNG_URL: http://searxng:8080
       TINYFISH_API_KEY: ${TINYFISH_API_KEY:-}
       # Transactional email — when unset, the email module no-ops.
       RESEND_API_KEY: ${RESEND_API_KEY:-}
-      EMAIL_FROM: ${EMAIL_FROM:-BigSet <simantak@tinyfish.ai>}
+      EMAIL_FROM: ${EMAIL_FROM:-ChampSet <noreply@championsmail.com>}
       # PostHog server-side analytics — same project key as the frontend.
       # When unset, backend analytics module no-ops.
       POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
@@ -50,6 +59,8 @@ services:
     depends_on:
       convex:
         condition: service_healthy
+      searxng:
+        condition: service_started
 
   mastra:
     build:
@@ -63,15 +74,22 @@ services:
       - ./backend/src:/app/src
       - ./scripts:/scripts:ro
     environment:
+      # See backend service — disable Happy-Eyeballs so Node fetch reaches
+      # external hosts (OpenRouter, web tools) from this IPv6-less container.
+      NODE_OPTIONS: --no-network-family-autoselection
       HOST: 0.0.0.0
       PORT: 4111
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       CONVEX_URL: http://convex:3210
       CONVEX_SELF_HOSTED_ADMIN_KEY: ${CONVEX_SELF_HOSTED_ADMIN_KEY:-}
+      # Open-source web backend. TINYFISH_API_KEY is no longer used.
+      SEARXNG_URL: http://searxng:8080
       TINYFISH_API_KEY: ${TINYFISH_API_KEY:-}
     depends_on:
       convex:
         condition: service_healthy
+      searxng:
+        condition: service_started
 
   frontend:
     build:
@@ -146,6 +164,22 @@ services:
     depends_on:
       convex:
         condition: service_healthy
+
+  # Open-source metasearch engine — replaces the proprietary TinyFish search API.
+  # Aggregates Google/Bing/DuckDuckGo/Brave/etc. No API key required.
+  # Backend + Mastra reach it over the compose network at http://searxng:8080.
+  searxng:
+    image: searxng/searxng:latest
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
 
 volumes:
   pgdata:

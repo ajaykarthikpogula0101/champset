@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.svg" alt="BigSet" width="100%" />
+  <img src="assets/banner.svg" alt="ChampSet" width="100%" />
 </p>
 
 <p align="center">
@@ -7,34 +7,41 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tinyfish-io/bigset/stargazers"><img src="https://img.shields.io/github/stars/tinyfish-io/bigset?style=flat" alt="GitHub Stars" /></a>
-  <a href="https://github.com/tinyfish-io/bigset/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License" /></a>
-  <a href="https://github.com/tinyfish-io/bigset/issues"><img src="https://img.shields.io/github/issues/tinyfish-io/bigset" alt="Issues" /></a>
-  <a href="https://x.com/Tiny_Fish"><img src="https://img.shields.io/twitter/follow/Tiny_Fish?style=flat" alt="Follow TinyFish" /></a>
+  <strong>A Champions Group product</strong> &nbsp;·&nbsp; <em>Empowering Innovation. Building Resilience.</em>
 </p>
 
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-F26722" alt="License" /></a>
+</p>
+
+> **About this build.** ChampSet is Champions Group's branded distribution of the open-source
+> **BigSet** project by [TinyFish](https://www.tinyfish.ai) ([tinyfish-io/bigset](https://github.com/tinyfish-io/bigset)),
+> used here under the **AGPL-3.0** license. The Champions Group branding (name, logos, colors,
+> typography) is applied on top; the underlying engine and the TinyFish API integration are
+> unchanged. See [License & Attribution](#-license--attribution).
+
 ---
 
-> ⚠️ **BigSet is experimental.** It works, sometimes surprisingly well, but expect rough edges. We're building in the open and shipping fast. Things will break, improve, and change. [Issues](https://github.com/tinyfish-io/bigset/issues) and feedback are very welcome.
+> ⚠️ **ChampSet is experimental.** It works, sometimes surprisingly well, but expect rough edges. We're building in the open and shipping fast. Things will break, improve, and change. [Issues](https://github.com/tinyfish-io/bigset/issues) and feedback are very welcome.
 
 ---
 
-## What Is BigSet?
+## What Is ChampSet?
 
 You type a sentence:
 
 > *"YC companies that are currently hiring engineers, with their funding stage, location, and number of open roles."*
 
-BigSet infers the schema automatically, sends autonomous agents to research it on the live web, verifies what they find against real sources, deduplicates, and hands you a structured dataset. Download as CSV or XLSX. Set a refresh cadence (30 min, 6 hours, 12 hours, daily, weekly) and the agents re-run on schedule, pulling fresh data so the dataset never goes stale.
+ChampSet infers the schema automatically, sends autonomous agents to research it on the live web, verifies what they find against real sources, deduplicates, and hands you a structured dataset. Download as CSV or XLSX. Set a refresh cadence (30 min, 6 hours, 12 hours, daily, weekly) and the agents re-run on schedule, pulling fresh data so the dataset never goes stale.
 
 **Any topic.** GPU prices. Competitor features. Research papers. Restaurant menus. Insurance quotes. Whatever you type, it builds. And keeps current.
 
-You don't pick a scraper, write selectors, or point it at a URL. You just describe the data you care about, set a refresh cadence, and BigSet handles the rest.
+You don't pick a scraper, write selectors, or point it at a URL. You just describe the data you care about, set a refresh cadence, and ChampSet handles the rest.
 
 Built on [TinyFish](https://www.tinyfish.ai?utm_source=github&utm_medium=organic&utm_campaign=bigset-developer-2026q2) APIs.
 
 
-## ✨ Why BigSet?
+## ✨ Why ChampSet?
 
 At the end of the day, every interaction with the web, whether it's you or your AI agent, ultimately comes down to data. Prices, companies, jobs, research, availability, inventory. The web has all of it, scattered across millions of pages.
 
@@ -42,7 +49,7 @@ There are great tools out there for parts of this problem. Scraping frameworks t
 
 But the moment you need something that cuts across those categories, or something none of them cover, you're back to square one. Stitching together search, extraction, schema design, deduplication, verification, and a cron job to keep it fresh. For every dataset. Every time. The data is right there on the web. Getting it into a table you can use is still a project.
 
-BigSet closes that gap. One sentence in, verified structured data out, refreshed on whatever cadence you set. Your agents get live data to reason over; you get a table you can actually use.
+ChampSet closes that gap. One sentence in, verified structured data out, refreshed on whatever cadence you set. Your agents get live data to reason over; you get a table you can actually use.
 
 Any dataset. Any source. Always fresh. That's the idea.
 
@@ -59,7 +66,7 @@ Any dataset. Any source. Always fresh. That's the idea.
 
 - **It's experimental.** Expect rough edges; schema inference isn't always perfect, and some topics work better than others.
 - **Dataset generation takes 2-5 minutes.** The agents are doing real web research: searching, fetching pages, verifying data. It's not instant, but the output is real.
-- **It works best for topics with publicly available web data.** If the information exists on public web pages, BigSet can probably find it. Data behind logins or paywalls is out of reach for now.
+- **It works best for topics with publicly available web data.** If the information exists on public web pages, ChampSet can probably find it. Data behind logins or paywalls is out of reach for now.
 - **Scheduled refresh keeps datasets current.** Set a cadence (30 min to weekly) and the agents re-run automatically. No manual re-runs.
 - **Datasets are downloadable, not queryable.** You can browse in the UI and export CSV/XLSX. SQL query support is on the roadmap.
 
@@ -129,7 +136,7 @@ Once everything is ready, you'll see:
 
 | Service | URL |
 |---------|-----|
-| **BigSet app** | [localhost:3500](http://localhost:3500) |
+| **ChampSet app** | [localhost:3500](http://localhost:3500) |
 | **Convex dashboard** | [localhost:6791](http://localhost:6791) |
 | **Mastra Studio** (workflow inspector) | [localhost:4111](http://localhost:4111) |
 
@@ -141,7 +148,7 @@ Open [localhost:3500](http://localhost:3500) and click **Get started** to sign i
 
 ### Step 6 (optional): Load curated datasets
 
-BigSet includes 9 curated public datasets (AI companies hiring, GPU prices, model pricing, etc.) that show on the landing page:
+ChampSet includes 9 curated public datasets (AI companies hiring, GPU prices, model pricing, etc.) that show on the landing page:
 
 ```bash
 make seed-public-datasets
@@ -248,10 +255,10 @@ bigset/
 
 ## 🛣️ Roadmap
 
-We're building BigSet in the open. Here's what's coming:
+We're building ChampSet in the open. Here's what's coming:
 
 - [ ] **TinyFish Browser + Agent integration** — For JS-heavy sites, SPAs, and pages that need interaction to reveal data.
-- [ ] **Agent-native API** — So your agents can create, query, and consume BigSet datasets programmatically. Build datasets on the fly, export them, feed them to your agents today. Next up: agents generate and query datasets directly.
+- [ ] **Agent-native API** — So your agents can create, query, and consume ChampSet datasets programmatically. Build datasets on the fly, export them, feed them to your agents today. Next up: agents generate and query datasets directly.
 - [ ] **SQL query layer** — Query your datasets with SQL instead of just exporting.
 - [ ] **Per-cell source provenance** — Click any cell to see exactly where the data came from.
 - [ ] **Healer agents** — Automatically detect and fix broken or stale rows.
@@ -261,7 +268,7 @@ We're building BigSet in the open. Here's what's coming:
 
 ## 🏗 Building in Public
 
-BigSet is a work in progress. We're building in the open because the best ideas come from the people who actually want to use the thing.
+ChampSet is a work in progress. We're building in the open because the best ideas come from the people who actually want to use the thing.
 
 We'd love your feedback, ideas, or help building — come say hi:
 
@@ -285,7 +292,7 @@ We'd love your feedback, ideas, or help building — come say hi:
   <img src="https://contrib.rocks/image?repo=tinyfish-io/bigset" />
 </a>
 
-^ This awesome team is behing BigSet! We'd love to have you on board :) 
+^ This awesome team is behing ChampSet! We'd love to have you on board :) 
 
 Contributions are very welcome — whether it's code, feedback, or just telling us what datasets you'd want to build.
 
@@ -297,6 +304,17 @@ Contributions are very welcome — whether it's code, feedback, or just telling 
 
 If you're not sure where to start, [open an issue](https://github.com/tinyfish-io/bigset/issues) or come say hi.
 
-## 📄 License
+## 📄 License & Attribution
 
-[AGPL-3.0](LICENSE)
+ChampSet is licensed under [AGPL-3.0](LICENSE).
+
+ChampSet is a Champions Group–branded distribution of the open-source **BigSet** project by
+**TinyFish** (https://github.com/tinyfish-io/bigset). The original work is © its respective authors
+and licensed under AGPL-3.0; that license and all upstream copyright notices are retained in
+[`LICENSE`](LICENSE). Champions Group's contribution is limited to branding (product name, logos,
+color system, and typography). "ChampSet" and the Champions Group identity are applied for internal
+use; "BigSet", "TinyFish", and related marks belong to TinyFish.
+
+> **AGPL note:** AGPL-3.0 is a network-copyleft license. If you deploy ChampSet as a network
+> service, you must make the complete corresponding source (including these modifications)
+> available to its users.

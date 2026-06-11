@@ -1,0 +1,17 @@
+<svg width="178" height="36" viewBox="0 0 178 36" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ChampSet">
+  <defs>
+    <linearGradient id="cs-mark-dark" x1="2" y1="4" x2="30" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF8544"/>
+      <stop offset="1" stop-color="#F26722"/>
+    </linearGradient>
+  </defs>
+  <!-- mark tile -->
+  <rect x="2" y="4" width="28" height="28" rx="8" fill="url(#cs-mark-dark)"/>
+  <!-- crown -->
+  <path d="M9 24 L9 14.5 L13 18 L16 12 L19 18 L23 14.5 L23 24 Z" fill="#1A1A1A"/>
+  <rect x="9" y="25.2" width="14" height="2.2" rx="1.1" fill="#1A1A1A"/>
+  <!-- wordmark -->
+  <text x="40" y="25" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="-0.4">
+    <tspan fill="#FAF3EC">Champ</tspan><tspan fill="#FF8544">Set</tspan>
+  </text>
+</svg>

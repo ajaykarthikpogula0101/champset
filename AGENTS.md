@@ -1,4 +1,4 @@
-# BigSet — Agent Guidelines
+# ChampSet — Agent Guidelines
 
 ## Architecture
 

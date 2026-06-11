@@ -11,7 +11,6 @@ import {
   type DatasetCardData,
 } from "@/components/dataset/DatasetCard";
 import { useTheme } from "@/components/ThemeToggle";
-import { QuotaBadge } from "@/components/QuotaBadge";
 import { EVENTS, track } from "@/lib/analytics";
 import type { ProfileUser } from "@/lib/profile-user";
 
@@ -82,11 +81,9 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b border-border px-6 py-3 flex items-center justify-between bg-surface">
-        <img src="/BigSetLogo.png" alt="BigSet" className="h-[30px] dark:hidden" />
-        <img src="/BigSetLogoDarkBG.png" alt="BigSet" className="h-[30px] hidden dark:block" />
+        <img src="/champset-logo.svg" alt="ChampSet" className="h-[30px] dark:hidden" />
+        <img src="/champset-logo-dark.svg" alt="ChampSet" className="h-[30px] hidden dark:block" />
         <div className="flex items-center gap-4">
-          <QuotaBadge />
-          <div className="w-px h-4 bg-border" />
           <ProfileMenu user={user} onSignOut={() => signOut()} />
         </div>
       </header>
@@ -190,7 +187,7 @@ export default function DashboardPage() {
         <div className="h-12" />
 
         <Section
-          eyebrow="Curated by BigSet"
+          eyebrow="Curated by ChampSet"
           heading="Explore live datasets"
           isLoading={curated === undefined}
           datasets={filteredCurated as unknown as DatasetCardData[]}

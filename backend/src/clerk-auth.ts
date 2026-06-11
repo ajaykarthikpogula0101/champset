@@ -5,7 +5,7 @@ import type {
   FastifyRequest,
 } from "fastify";
 import fp from "fastify-plugin";
-import { createClerkClient, type ClerkClient } from "@clerk/backend";
+import { createClerkClient, verifyToken, type ClerkClient } from "@clerk/backend";
 
 import { env } from "./env.js";
 
@@ -80,8 +80,8 @@ export default fp(clerkPlugin, { name: "clerk-auth" });
  * Fastify preHandler that requires a valid Clerk session token.
  *
  * Reads `Authorization: Bearer <token>`, verifies it via Clerk's
- * `authenticateRequest`, and attaches `req.auth = { userId }` on success.
- * Returns 401 otherwise.
+ * `verifyToken` (networkless JWT verification against the instance JWKS),
+ * and attaches `req.auth = { userId }` on success. Returns 401 otherwise.
  */
 export async function requireAuth(
   req: FastifyRequest,
@@ -93,37 +93,43 @@ export async function requireAuth(
     return;
   }
 
-  // Wrap the Fastify request just enough for Clerk's authenticateRequest API.
-  // Clerk accepts a Web Request; build one from the headers we care about.
-  const headers = new Headers();
-  for (const [k, v] of Object.entries(req.headers)) {
-    if (typeof v === "string") headers.set(k, v);
-    else if (Array.isArray(v)) headers.set(k, v.join(", "));
+  // Verify the bearer token directly. `verifyToken` is the correct primitive
+  // for API token verification (networkless JWT verify against the instance's
+  // JWKS). We deliberately do NOT use `authenticateRequest` here — it is built
+  // for cookie/handshake flows and, given a bare Bearer token, retries for
+  // ~5s and returns `unexpected-error` instead of verifying the token.
+  const authz = req.headers["authorization"];
+  const header = Array.isArray(authz) ? authz[0] : authz;
+  const raw =
+    header && header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+
+  if (!raw) {
+    await reply.code(401).send({ error: "Unauthenticated" });
+    return;
   }
 
-  const clerkRequest = new Request(
-    `http://internal${req.url}`,
-    { method: req.method, headers },
-  );
-
-  const requestState = await req.server.clerk.authenticateRequest(
-    clerkRequest,
-    {
-      // Anyone consuming our backend is our own frontend; lock to its origin.
+  try {
+    const payload = await verifyToken(raw, {
+      secretKey: env.CLERK_SECRET_KEY,
+      // Token must be issued for our frontend origin. Clerk session tokens
+      // minted in the browser carry azp = the page origin; tokens without an
+      // azp claim (e.g. server-minted) pass this check.
       authorizedParties: [env.CLIENT_ORIGIN],
-    },
-  );
+    });
 
-  if (!requestState.isAuthenticated) {
+    if (!payload.sub) {
+      await reply.code(401).send({ error: "Unauthenticated" });
+      return;
+    }
+
+    req.auth = { userId: payload.sub };
+    return;
+  } catch (err) {
+    req.log.error(
+      { err: err instanceof Error ? err.message : String(err) },
+      "[requireAuth] token verification failed",
+    );
     await reply.code(401).send({ error: "Unauthenticated" });
     return;
   }
-
-  const auth = requestState.toAuth();
-  if (!auth.userId) {
-    await reply.code(401).send({ error: "Unauthenticated" });
-    return;
-  }
-
-  req.auth = { userId: auth.userId };
 }

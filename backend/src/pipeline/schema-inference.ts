@@ -28,8 +28,14 @@ Rules:
 
 function getModel(modelSlug?: string) {
   const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    throw new Error("Missing required environment variable: OPENROUTER_API_KEY");
+  // Reject empty AND the .env.example placeholder ("sk-or-..."). Without this,
+  // a placeholder key reaches OpenRouter, 401s, the AI SDK retries, and the
+  // request hangs until the proxy returns 502. Fail fast with a clear message.
+  if (!apiKey || !apiKey.startsWith("sk-or-v1-")) {
+    throw new Error(
+      "OPENROUTER_API_KEY is missing or invalid. Set a real key (sk-or-v1-...) " +
+        "in .env, then restart the backend. Get one at https://openrouter.ai/settings/keys",
+    );
   }
   const openrouter = createOpenRouter({ apiKey });
   const resolvedSlug = modelSlug ?? DEFAULT_MODEL_IDS.SCHEMA_INFERENCE;

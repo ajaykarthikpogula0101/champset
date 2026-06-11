@@ -1,0 +1,16 @@
+# Minimal SearXNG config for ChampSet's web-search backend.
+# Merges with SearXNG's shipped defaults; we only override what we need.
+use_default_settings: true
+
+server:
+  # Dev-only secret. Change for any non-local deployment.
+  secret_key: "champset-dev-searxng-secret-change-me"
+  # Disable the bot-limiter so the backend can query the JSON API freely.
+  limiter: false
+  image_proxy: false
+
+search:
+  # Enable JSON output — required by the search_web tool. Off by default.
+  formats:
+    - html
+    - json

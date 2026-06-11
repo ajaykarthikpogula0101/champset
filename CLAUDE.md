@@ -1,4 +1,4 @@
-# BigSet
+# ChampSet
 
 Monorepo: `frontend/` (Next.js 16) + `backend/` (Fastify + Mastra). Run with `make dev` (Docker).
 

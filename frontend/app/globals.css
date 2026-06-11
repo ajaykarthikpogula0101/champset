@@ -2,18 +2,20 @@
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
+/* Champions Group brand palette — orange + white + ink.
+   White dominates, orange accents, ink for text. Never pure black; keep warm. */
 :root,
 :root[data-theme="light"] {
-  --background: rgb(243, 244, 240);
-  --foreground: #1d1b16;
-  --surface: rgb(229, 231, 224);
-  --border: rgb(205, 208, 198);
-  --muted: #7c7f74;
-  --accent: #1d1b16;
-  --accent-text: rgb(243, 244, 240);
-  --link: #2563eb;
-  --link-decoration: rgba(37, 99, 235, 0.3);
-  --link-decoration-hover: rgba(37, 99, 235, 0.6);
+  --background: #ffffff;
+  --foreground: #1a1a1a;        /* Champions Ink */
+  --surface: #fff4ec;           /* Soft Peach — headers, cards */
+  --border: #efdfd2;            /* warm border */
+  --muted: #6b6b6b;             /* Warm Gray */
+  --accent: #f26722;            /* Champions Orange — CTAs, highlights */
+  --accent-text: #ffffff;
+  --link: #f26722;
+  --link-decoration: rgba(242, 103, 34, 0.3);
+  --link-decoration-hover: rgba(242, 103, 34, 0.6);
   --table-row-height: 34px;
   --table-header-height: 32px;
   --table-cell-px: 12px;
@@ -21,16 +23,16 @@
 }
 
 :root[data-theme="dark"] {
-  --background: #141210;
-  --foreground: #e8e4de;
-  --surface: #1c1a17;
-  --border: #2e2b26;
-  --muted: #7a756c;
-  --accent: #e8e4de;
-  --accent-text: #141210;
-  --link: #93b4f5;
-  --link-decoration: rgba(147, 180, 245, 0.25);
-  --link-decoration-hover: rgba(147, 180, 245, 0.5);
+  --background: #1a1a1a;        /* warm ink, not pure black */
+  --foreground: #faf3ec;
+  --surface: #242019;           /* warm dark surface */
+  --border: #3a332c;            /* warm border */
+  --muted: #a89b8e;             /* warm gray */
+  --accent: #ff8544;            /* Bright Orange — better contrast on dark */
+  --accent-text: #1a1a1a;
+  --link: #ff8544;
+  --link-decoration: rgba(255, 133, 68, 0.3);
+  --link-decoration-hover: rgba(255, 133, 68, 0.6);
 }
 
 @theme inline {
@@ -79,7 +81,7 @@ body {
   padding: 1px;
   background: conic-gradient(
     from var(--border-angle),
-    #4285f4, #ea4335, #fbbc04, #34a853, #4285f4
+    #f26722, #ff8544, #d94f0a, #ffb47a, #f26722
   );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -104,7 +106,7 @@ body {
 }
 
 @keyframes cell-flash {
-  0% { background-color: rgba(16, 185, 129, 0.25); }
+  0% { background-color: rgba(242, 103, 34, 0.22); }
   100% { background-color: transparent; }
 }
 

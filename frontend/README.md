@@ -1,6 +1,6 @@
-# BigSet Frontend
+# ChampSet Frontend
 
-Next.js 16 app — the UI for BigSet.
+Next.js 16 app — the UI for ChampSet.
 
 ## Running
 

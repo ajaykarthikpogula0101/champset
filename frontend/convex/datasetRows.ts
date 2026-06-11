@@ -80,7 +80,7 @@ export const insert = internalMutation({
     const maxRowCount = dataset.maxRowCount ?? DEFAULT_MAX_DATASET_ROWS;
     if (previousCount >= maxRowCount) {
       throw new Error(
-        `Row limit reached: this BigSet dataset is capped at ${maxRowCount} rows. Stop inserting rows and finish the run.`,
+        `Row limit reached: this ChampSet dataset is capped at ${maxRowCount} rows. Stop inserting rows and finish the run.`,
       );
     }
 

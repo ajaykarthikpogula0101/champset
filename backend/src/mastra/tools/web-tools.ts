@@ -1,7 +1,23 @@
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { JSDOM } from "jsdom";
+import { Readability } from "@mozilla/readability";
+import TurndownService from "turndown";
 
 const FETCH_TIMEOUT_MS = 30_000;
+
+// Open-source web backend (replaces the proprietary TinyFish API):
+//   search → self-hosted SearXNG metasearch (aggregates Google/Bing/DDG/Brave),
+//            no API key required.
+//   fetch  → plain HTTP GET + Mozilla Readability main-content extraction,
+//            converted to markdown. Fully local, no third-party service.
+// SearXNG runs as a Docker service; the backend reaches it at http://searxng:8080.
+const SEARXNG_URL = (process.env.SEARXNG_URL || "http://searxng:8080").replace(/\/$/, "");
+
+// A realistic desktop UA reduces bot-blocking on plain fetches.
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
 const searchResultSchema = z.object({
   title: z.string(),
@@ -24,38 +40,37 @@ export const searchWebTool = createTool({
     if (!query?.trim())
       return { error: "query is required and cannot be empty." };
 
-    const apiKey = process.env.TINYFISH_API_KEY;
-    if (!apiKey)
-      return { error: "TINYFISH_API_KEY is not configured. Web search is unavailable — use synthetic data instead." };
-
-    const url = `https://api.search.tinyfish.ai?query=${encodeURIComponent(query)}`;
-    console.log(`[search_web] Searching: "${query}"`);
+    const url = `${SEARXNG_URL}/search?q=${encodeURIComponent(query)}&format=json`;
+    console.log(`[search_web] Searching SearXNG: "${query}"`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(url, {
-        headers: { "X-API-Key": apiKey, "X-TF-Request-Origin": "bigset" },
+        headers: { Accept: "application/json", "User-Agent": USER_AGENT },
         signal: controller.signal,
       });
       clearTimeout(timeout);
 
       if (!res.ok) {
         const body = await res.text();
-        console.error(`[search_web] API error ${res.status}:`, body.slice(0, 200));
+        console.error(`[search_web] SearXNG error ${res.status}:`, body.slice(0, 200));
         if (res.status === 429)
           return { error: "Search rate limit hit. Wait a moment, or skip web search and use synthetic data." };
-        if (res.status === 401)
-          return { error: "Invalid TINYFISH_API_KEY. Web search unavailable — use synthetic data." };
-        return { error: `Search API returned HTTP ${res.status}. Try a different query or use synthetic data.` };
+        if (res.status === 403)
+          return { error: "SearXNG rejected the request (JSON format may be disabled in settings.yml). Use synthetic data." };
+        return { error: `Search backend returned HTTP ${res.status}. Try a different query or use synthetic data.` };
       }
 
       const data = await res.json();
-      const results = (data.results ?? []).map((r: Record<string, unknown>) => ({
-        title: r.title as string,
-        snippet: r.snippet as string,
-        url: r.url as string,
-      }));
+      const results = (data.results ?? [])
+        .slice(0, 10)
+        .map((r: Record<string, unknown>) => ({
+          title: (r.title as string) ?? "",
+          snippet: ((r.content as string) ?? "").trim(),
+          url: (r.url as string) ?? "",
+        }))
+        .filter((r: { url: string }) => r.url);
 
       console.log(`[search_web] Got ${results.length} results`);
       if (results.length === 0)
@@ -67,10 +82,15 @@ export const searchWebTool = createTool({
         return { error: "Search timed out. Skip web search and use synthetic data." };
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[search_web] Failed:`, msg);
+      // ECONNREFUSED → SearXNG container not running.
+      if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed"))
+        return { error: "Search backend (SearXNG) is unreachable. Skip web search and use synthetic data." };
       return { error: `Search failed: ${msg}. Skip web search and use synthetic data.` };
     }
   },
 });
+
+const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
 
 export const fetchPageTool = createTool({
   id: "fetch_page",
@@ -90,67 +110,55 @@ export const fetchPageTool = createTool({
     if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://"))
       return { error: `Invalid URL "${targetUrl}". Must start with http:// or https://.` };
 
-    const apiKey = process.env.TINYFISH_API_KEY;
-    if (!apiKey)
-      return { error: "TINYFISH_API_KEY is not configured. Page fetch is unavailable — use data from search snippets instead." };
-
     console.log(`[fetch_page] Fetching: ${targetUrl}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch("https://api.fetch.tinyfish.ai", {
-        method: "POST",
+      const res = await fetch(targetUrl, {
         headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": apiKey,
-          "X-TF-Request-Origin": "bigset",
+          "User-Agent": USER_AGENT,
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
-        body: JSON.stringify({ urls: [targetUrl], format: "markdown" }),
+        redirect: "follow",
         signal: controller.signal,
       });
       clearTimeout(timeout);
 
       if (!res.ok) {
-        const body = await res.text();
-        console.error(`[fetch_page] API error ${res.status}:`, body.slice(0, 200));
+        if (res.status === 404)
+          return { error: "Page not found (404). The URL may be outdated. Try a different one." };
+        if (res.status === 403 || res.status === 401)
+          return { error: "This site blocks automated access. Use the search snippet data instead." };
         if (res.status === 429)
           return { error: "Fetch rate limit hit. Use data from search snippets instead." };
-        if (res.status === 401)
-          return { error: "Invalid TINYFISH_API_KEY. Page fetch unavailable." };
-        return { error: `Fetch API returned HTTP ${res.status}. Try a different URL or use search snippet data.` };
+        return { error: `Site returned HTTP ${res.status}. Try a different URL or use search snippet data.` };
       }
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") ?? "";
+      const raw = await res.text();
 
-      if (data.errors?.length > 0) {
-        const err = data.errors[0];
-        console.log(`[fetch_page] Failed: ${err.error}`);
-        const hints: Record<string, string> = {
-          bot_blocked: "This site blocks automated access. Use the search snippet data instead.",
-          timeout: "Page took too long to load. Try a different URL.",
-          target_unreachable: "Could not connect to this site. Try a different URL.",
-          page_not_found: "Page not found (404). The URL may be outdated. Try a different one.",
-          target_http_error: `Site returned HTTP ${err.status ?? "error"}. Try a different URL.`,
-        };
-        return { error: hints[err.error] ?? `Fetch failed: ${err.error}. Try a different URL.` };
+      // Non-HTML (JSON, plain text, CSV…) — return as-is, truncated.
+      if (!contentType.includes("html")) {
+        return finalize(undefined, raw);
       }
 
-      const page = data.results?.[0];
-      if (!page?.text)
-        return { error: "Page loaded but had no extractable text content. Try a different URL." };
+      // Parse + extract main article content. JSDOM does NOT execute page
+      // scripts by default, so this is safe against malicious page JS.
+      const dom = new JSDOM(raw, { url: targetUrl });
+      const reader = new Readability(dom.window.document);
+      const article = reader.parse();
 
-      let text = page.text as string;
-      const MAX_CHARS = 15000;
-      if (text.length > MAX_CHARS) {
-        text = text.slice(0, MAX_CHARS) + `\n\n[Truncated — showing first ${MAX_CHARS} of ${page.text.length} chars]`;
+      if (article?.content) {
+        const markdown = turndown.turndown(article.content);
+        return finalize(article.title ?? undefined, markdown);
       }
 
-      console.log(`[fetch_page] Got ${(page.text as string).length} chars from "${page.title}" (returning ${text.length})`);
-      return {
-        title: page.title as string | undefined,
-        text,
-      };
+      // Readability couldn't isolate an article — fall back to body text.
+      const bodyText = dom.window.document.body?.textContent?.trim() ?? "";
+      if (bodyText) return finalize(dom.window.document.title || undefined, bodyText);
+
+      return { error: "Page loaded but had no extractable text content. Try a different URL." };
     } catch (err) {
       clearTimeout(timeout);
       if (err instanceof Error && err.name === "AbortError")
@@ -161,3 +169,14 @@ export const fetchPageTool = createTool({
     }
   },
 });
+
+function finalize(title: string | undefined, text: string): { title?: string; text: string } {
+  const cleaned = text.replace(/\n{3,}/g, "\n\n").trim();
+  const MAX_CHARS = 15000;
+  const out =
+    cleaned.length > MAX_CHARS
+      ? cleaned.slice(0, MAX_CHARS) + `\n\n[Truncated — showing first ${MAX_CHARS} of ${cleaned.length} chars]`
+      : cleaned;
+  console.log(`[fetch_page] Extracted ${cleaned.length} chars (returning ${out.length})`);
+  return { title, text: out };
+}

@@ -732,7 +732,11 @@ await fastify.register(async (instance) => {
       return schema;
     } catch (err) {
       req.log.error(err, "Schema inference failed");
-      return reply.code(502).send({ error: "Schema inference failed. Please try again." });
+      // Surface the real reason (e.g. missing/invalid OPENROUTER_API_KEY) so it's
+      // actionable during local testing instead of a generic "try again".
+      const message =
+        err instanceof Error ? err.message : "Schema inference failed. Please try again.";
+      return reply.code(502).send({ error: message });
     }
   });
 

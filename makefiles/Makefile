@@ -22,7 +22,7 @@ dev: validate-dev-env install-deps
 	$(MAKE) convex-push
 	docker compose -f docker-compose.dev.yml up --build -d
 	@echo ""
-	@echo "BigSet is ready!"
+	@echo "ChampSet is ready!"
 	@echo "  App:              http://localhost:3500"
 	@echo "  Mastra Studio:    http://localhost:4111"
 	@echo "  Convex Dashboard: http://localhost:6791"
@@ -39,7 +39,6 @@ validate-dev-env:
 			missing="$$missing $$key"; \
 		fi; \
 	}; \
-	check_env TINYFISH_API_KEY ""; \
 	check_env OPENROUTER_API_KEY sk-or-...; \
 	check_env NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY pk_test_...; \
 	check_env CLERK_SECRET_KEY sk_test_...; \
