@@ -5,6 +5,7 @@ import { convex, internal } from "../../convex.js";
 import { buildRefreshAgent } from "../agents/refresh.js";
 import { authContextSchema } from "./populate.js";
 import { RunMetrics } from "../run-metrics.js";
+import { resolveProviderName } from "../tools/web-providers/index.js";
 import { saveRunMetrics } from "../save-run-metrics.js";
 import { getSignal } from "../../abort-registry.js";
 
@@ -98,6 +99,9 @@ const refreshRowsStep = createStep({
     let errors = 0;
 
     const metrics = new RunMetrics();
+    metrics.searchProvider = resolveProviderName(
+      authContext.modelConfig?.searchProvider,
+    );
     const startedAt = Date.now();
 
     const pkColumns = columns.filter((c) => c.isPrimaryKey);
@@ -224,6 +228,7 @@ ${row.howFound ? `\nPreviously found via: ${row.howFound}` : ""}`;
         ? `${errors} of ${rows.length} row(s) failed to refresh`
         : undefined,
       workflowType: "update",
+      searchProvider: metrics.searchProvider,
     }).catch((err) =>
       console.error(
         `[refresh-rows] metrics save failed run=${authContext.workflowRunId}:`,

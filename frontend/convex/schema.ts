@@ -75,6 +75,9 @@ export default defineSchema({
       )
     ),
     sourceHint: v.optional(v.string()),
+    // A/B web engine for this Set: "searxng" (owned) or "exa". Optional →
+    // undefined inherits the owner/app default at populate time.
+    searchProvider: v.optional(v.union(v.literal("searxng"), v.literal("exa"))),
   })
     .index("by_owner", ["ownerId"])
     .index("by_visibility", ["visibility"])
@@ -138,6 +141,8 @@ export default defineSchema({
     schemaInference: v.optional(v.string()),
     populateOrchestrator: v.optional(v.string()),
     investigateSubagent: v.optional(v.string()),
+    // Per-user default web engine, set by the dashboard toggle.
+    searchProvider: v.optional(v.union(v.literal("searxng"), v.literal("exa"))),
   }).index("by_user", ["userId"]),
 
   // One row per populate workflow run. Written once at the end of each run
@@ -171,6 +176,8 @@ export default defineSchema({
       v.union(v.literal("populate"), v.literal("update"))
     ),
     rowsUpdated: v.optional(v.number()),
+    // Web engine the run used, for the A/B bake-off.
+    searchProvider: v.optional(v.union(v.literal("searxng"), v.literal("exa"))),
   })
     .index("by_dataset", ["datasetId"])
     .index("by_user", ["userId"])

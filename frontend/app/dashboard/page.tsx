@@ -11,6 +11,7 @@ import {
   type DatasetCardData,
 } from "@/components/dataset/DatasetCard";
 import { useTheme } from "@/components/ThemeToggle";
+import { EngineToggle } from "@/components/EngineToggle";
 import { EVENTS, track } from "@/lib/analytics";
 import type { ProfileUser } from "@/lib/profile-user";
 
@@ -84,6 +85,7 @@ export default function DashboardPage() {
         <img src="/champset-logo.svg" alt="ChampSet" className="h-[30px] dark:hidden" />
         <img src="/champset-logo-dark.svg" alt="ChampSet" className="h-[30px] hidden dark:block" />
         <div className="flex items-center gap-4">
+          <EngineToggle />
           <ProfileMenu user={user} onSignOut={() => signOut()} />
         </div>
       </header>

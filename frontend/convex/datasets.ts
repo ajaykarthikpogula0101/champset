@@ -284,6 +284,7 @@ export const claimScheduledRefreshInternal = internalMutation({
         columns: dataset.columns,
         ownerId: dataset.ownerId,
         maxRowCount: dataset.maxRowCount ?? DEFAULT_MAX_ROW_COUNT,
+        searchProvider: dataset.searchProvider,
       },
     };
   },
@@ -384,6 +385,7 @@ export const create = mutation({
       )
     ),
     sourceHint: v.optional(v.string()),
+    searchProvider: v.optional(v.union(v.literal("searxng"), v.literal("exa"))),
   },
   handler: async (ctx, args) => {
     const identity = await requireIdentity(ctx);

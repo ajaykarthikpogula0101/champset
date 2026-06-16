@@ -37,6 +37,13 @@ export const env = {
 
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
 
+  // Web discovery engine for the agents. "searxng" = owned SearXNG +
+  // Readability (no key). "exa" = Exa /search + /contents (needs EXA_API_KEY).
+  // This is the app-wide default; a per-user or per-dataset choice overrides it.
+  SEARCH_PROVIDER: process.env.SEARCH_PROVIDER === "exa" ? "exa" : "searxng",
+  // Exa API key. Required only when the Exa engine is active.
+  EXA_API_KEY: process.env.EXA_API_KEY,
+
   // Default models — used when a user has not saved a preference.
   // Each must be a valid OpenRouter model slug.
   SCHEMA_INFERENCE_MODEL:

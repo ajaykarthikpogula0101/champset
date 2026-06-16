@@ -30,6 +30,7 @@ export const upsert = mutation({
     schemaInference: v.optional(v.string()),
     populateOrchestrator: v.optional(v.string()),
     investigateSubagent: v.optional(v.string()),
+    searchProvider: v.optional(v.union(v.literal("searxng"), v.literal("exa"))),
   },
   handler: async (ctx, args) => {
     const identity = await getIdentity(ctx);
@@ -47,6 +48,7 @@ export const upsert = mutation({
       if (args.schemaInference !== undefined) patch.schemaInference = args.schemaInference;
       if (args.populateOrchestrator !== undefined) patch.populateOrchestrator = args.populateOrchestrator;
       if (args.investigateSubagent !== undefined) patch.investigateSubagent = args.investigateSubagent;
+      if (args.searchProvider !== undefined) patch.searchProvider = args.searchProvider;
       await ctx.db.patch(existing._id, patch);
     } else {
       // First-time save — build insert object from provided fields only.
@@ -56,10 +58,12 @@ export const upsert = mutation({
         schemaInference?: string;
         populateOrchestrator?: string;
         investigateSubagent?: string;
+        searchProvider?: "searxng" | "exa";
       } = { userId: identity.subject };
       if (args.schemaInference !== undefined) insert.schemaInference = args.schemaInference;
       if (args.populateOrchestrator !== undefined) insert.populateOrchestrator = args.populateOrchestrator;
       if (args.investigateSubagent !== undefined) insert.investigateSubagent = args.investigateSubagent;
+      if (args.searchProvider !== undefined) insert.searchProvider = args.searchProvider;
       await ctx.db.insert("modelConfig", insert);
     }
   },
@@ -88,6 +92,7 @@ export const upsertInternal = internalMutation({
     schemaInference: v.optional(v.string()),
     populateOrchestrator: v.optional(v.string()),
     investigateSubagent: v.optional(v.string()),
+    searchProvider: v.optional(v.union(v.literal("searxng"), v.literal("exa"))),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -99,6 +104,7 @@ export const upsertInternal = internalMutation({
     if (args.schemaInference !== undefined) patch.schemaInference = args.schemaInference;
     if (args.populateOrchestrator !== undefined) patch.populateOrchestrator = args.populateOrchestrator;
     if (args.investigateSubagent !== undefined) patch.investigateSubagent = args.investigateSubagent;
+    if (args.searchProvider !== undefined) patch.searchProvider = args.searchProvider;
 
     if (existing) {
       await ctx.db.patch(existing._id, patch);

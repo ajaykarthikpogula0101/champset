@@ -1,3 +1,4 @@
+import type { SearchProviderName } from "./tools/web-providers/index.js";
 /**
  * Per-run metrics collector for the populate and update workflows.
  *
@@ -30,6 +31,8 @@ function tokens(result: AgentResult): { input: number; output: number } {
 }
 
 export class RunMetrics {
+  /** Web engine this run used. Tagged at run start; persisted to runStats. */
+  searchProvider: SearchProviderName = "searxng";
   searchCalls = 0;
   fetchCalls = 0;
   /** run_subagent tool calls dispatched by the orchestrator (populate only). */

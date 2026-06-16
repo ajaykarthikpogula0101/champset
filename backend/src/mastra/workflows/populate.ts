@@ -7,6 +7,7 @@ import { convex, internal } from "../../convex.js";
 import { DEFAULT_MODEL_IDS } from "../../config/models.js";
 import { buildPopulateAgent } from "../agents/populate.js";
 import { RunMetrics } from "../run-metrics.js";
+import { resolveProviderName } from "../tools/web-providers/index.js";
 import { saveRunMetrics } from "../save-run-metrics.js";
 import { getSignal } from "../../abort-registry.js";
 
@@ -36,6 +37,10 @@ export const authContextSchema = z.object({
     schemaInference: z.string().min(1),
     populateOrchestrator: z.string().min(1),
     investigateSubagent: z.string().min(1),
+    // Which web engine this run uses: "searxng" (owned) or "exa".
+    // Optional for back-compat; resolveProviderName() falls back to the
+    // SEARCH_PROVIDER env default when absent.
+    searchProvider: z.enum(["searxng", "exa"]).optional(),
   }),
   isBenchmark: z.boolean().optional(),
 });
@@ -239,6 +244,9 @@ const agentStep = createStep({
   outputSchema: z.object({ text: z.string() }),
   execute: async ({ inputData }) => {
     const metrics = new RunMetrics();
+    metrics.searchProvider = resolveProviderName(
+      inputData.authContext.modelConfig?.searchProvider,
+    );
     const startedAt = Date.now();
     let status: "success" | "error" = "success";
     let errorMsg: string | undefined;
@@ -281,6 +289,7 @@ const agentStep = createStep({
         status,
         error: errorMsg,
         isBenchmark: inputData.authContext.isBenchmark,
+        searchProvider: metrics.searchProvider,
       }).catch((err) =>
         console.error(
           `[populate-agent] metrics save failed run=${inputData.authContext.workflowRunId}:`,

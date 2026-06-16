@@ -97,6 +97,12 @@ export default function NewDatasetPage() {
   const { getToken } = useAuth();
 
   const createDataset = useMutation(api.datasets.create);
+  // The user's current dashboard engine choice, stamped onto the Set so
+  // each one records which engine built it (bake-off attribution).
+  const engineCfg = useQuery(
+    api.modelConfig.get,
+    isAuthenticated ? {} : "skip",
+  );
   const usage = useQuery(
     api.quota.getMy,
     isAuthenticated ? {} : "skip",
@@ -200,6 +206,7 @@ export default function NewDatasetPage() {
         })),
         retrievalStrategy: retrievalStrategy ?? undefined,
         sourceHint: sourceHint || undefined,
+        searchProvider: engineCfg?.searchProvider ?? undefined,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create dataset";

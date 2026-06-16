@@ -1,7 +1,8 @@
 import { Agent } from "@mastra/core/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { buildPopulateTools } from "../tools/dataset-tools.js";
-import { searchWebTool, fetchPageTool } from "../tools/web-tools.js";
+import { buildWebTools } from "../tools/web-tools.js";
+import { getWebProvider, resolveProviderName } from "../tools/web-providers/index.js";
 import type { AuthContext } from "../workflows/populate.js";
 import type { PopulateColumn } from "../../pipeline/populate.js";
 
@@ -66,6 +67,10 @@ export function buildInvestigateAgent(
     authorizedDatasetId,
     authContext,
   );
+  const provider = getWebProvider(
+    resolveProviderName(authContext.modelConfig?.searchProvider),
+  );
+  const { search_web, fetch_page } = buildWebTools(provider);
   return new Agent({
     id: "investigate-agent",
     name: "Dataset Investigate Agent",
@@ -74,8 +79,8 @@ export function buildInvestigateAgent(
 
     tools: {
       insert_row,
-      search_web: searchWebTool,
-      fetch_page: fetchPageTool,
+      search_web,
+      fetch_page,
     },
   });
 }

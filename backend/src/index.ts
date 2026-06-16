@@ -209,6 +209,7 @@ async function runUpdateWorkflowInBackground({
     schemaInference: string;
     populateOrchestrator: string;
     investigateSubagent: string;
+    searchProvider?: "searxng" | "exa";
   };
 }): Promise<void> {
   const datasetId = input.datasetId;
@@ -313,6 +314,7 @@ async function runScheduledUpdateWorkflowInBackground({
     schemaInference: string;
     populateOrchestrator: string;
     investigateSubagent: string;
+    searchProvider?: "searxng" | "exa";
   };
 }): Promise<void> {
   const datasetId = input.datasetId;
@@ -387,6 +389,7 @@ async function runPopulateWorkflowInBackground({
     schemaInference: string;
     populateOrchestrator: string;
     investigateSubagent: string;
+    searchProvider?: "searxng" | "exa";
   };
 }): Promise<void> {
   const datasetId = input.datasetId;
@@ -561,7 +564,18 @@ function startLocalRefreshScheduler(
 
         const dataset = claim.dataset;
         const { getModelConfig } = await import("./config/models.js");
-        const modelConfig = await getModelConfig(dataset.ownerId);
+        const baseModelConfig = await getModelConfig(dataset.ownerId);
+        // Per-Set engine override: a scheduled refresh reuses the same web
+        // layer the Set was built with, falling back to the owner default.
+        const scheduledProvider = (dataset as { searchProvider?: string })
+          .searchProvider;
+        const modelConfig = {
+          ...baseModelConfig,
+          searchProvider:
+            scheduledProvider === "exa" || scheduledProvider === "searxng"
+              ? scheduledProvider
+              : baseModelConfig.searchProvider,
+        };
 
         void runScheduledUpdateWorkflowInBackground({
           input: {
@@ -674,6 +688,7 @@ await fastify.register(async (instance) => {
       schemaInference?: string | null;
       populateOrchestrator?: string | null;
       investigateSubagent?: string | null;
+      searchProvider?: string | null;
     };
 
     const toValidate: Array<{ role: "schemaInference" | "populateOrchestrator" | "investigateSubagent"; slug: string }> = [];
@@ -702,6 +717,10 @@ await fastify.register(async (instance) => {
         schemaInference: body.schemaInference ?? undefined,
         populateOrchestrator: body.populateOrchestrator ?? undefined,
         investigateSubagent: body.investigateSubagent ?? undefined,
+        searchProvider:
+          body.searchProvider === "exa" || body.searchProvider === "searxng"
+            ? body.searchProvider
+            : undefined,
       });
       return { success: true };
     } catch (err) {
@@ -781,7 +800,17 @@ await fastify.register(async (instance) => {
       }
 
       const { getModelConfig } = await import("./config/models.js");
-      const modelConfig = await getModelConfig(auth.userId);
+      const baseModelConfig = await getModelConfig(auth.userId);
+      // Per-Set engine override: a dataset may pin "searxng" or "exa".
+      // Otherwise use the user default resolved by getModelConfig.
+      const datasetProvider = (dataset as { searchProvider?: string }).searchProvider;
+      const modelConfig = {
+        ...baseModelConfig,
+        searchProvider:
+          datasetProvider === "exa" || datasetProvider === "searxng"
+            ? datasetProvider
+            : baseModelConfig.searchProvider,
+      };
 
       let run: Awaited<ReturnType<typeof populateWorkflow.createRun>>;
       try {
@@ -868,7 +897,23 @@ await fastify.register(async (instance) => {
       }
 
       const { getModelConfig } = await import("./config/models.js");
-      const modelConfig = await getModelConfig(auth.userId);
+      const baseModelConfig = await getModelConfig(auth.userId);
+      // Per-Set engine override: honor the engine pinned on the dataset so a
+      // manual update reuses the same web layer the Set was built with, then
+      // fall back to the user default resolved by getModelConfig.
+      const updateDataset = await convex.query(internal.datasets.getInternal, {
+        id: parsed.data.datasetId,
+      });
+      const updateDatasetProvider = (
+        updateDataset as { searchProvider?: string } | null
+      )?.searchProvider;
+      const modelConfig = {
+        ...baseModelConfig,
+        searchProvider:
+          updateDatasetProvider === "exa" || updateDatasetProvider === "searxng"
+            ? updateDatasetProvider
+            : baseModelConfig.searchProvider,
+      };
 
       // Register before void-ing so the abort-registry entry is visible the
       // instant the 202 is sent, closing the TOCTOU window where a /stop

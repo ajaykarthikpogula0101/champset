@@ -1,5 +1,6 @@
 import { convex, internal } from "../convex.js";
 import type { RunMetrics } from "./run-metrics.js";
+import type { SearchProviderName } from "./tools/web-providers/index.js";
 
 export interface SaveRunMetricsInput {
   workflowRunId: string;
@@ -12,6 +13,7 @@ export interface SaveRunMetricsInput {
   error?: string;
   isBenchmark?: boolean;
   workflowType?: "populate" | "update";
+  searchProvider?: SearchProviderName;
 }
 
 /**
@@ -50,6 +52,7 @@ export async function saveRunMetrics(input: SaveRunMetricsInput): Promise<void> 
     error: input.error,
     isBenchmark: input.isBenchmark,
     workflowType: input.workflowType,
+    searchProvider: input.searchProvider ?? input.metrics.searchProvider,
     rowsUpdated: input.metrics.rowsUpdated > 0 ? input.metrics.rowsUpdated : undefined,
   });
 }

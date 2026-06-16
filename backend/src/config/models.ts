@@ -95,6 +95,7 @@ export async function upsertModelConfig(
     schemaInference?: string;
     populateOrchestrator?: string;
     investigateSubagent?: string;
+    searchProvider?: "searxng" | "exa";
   }
 ): Promise<void> {
   await convex.mutation(internal.modelConfig.upsertInternal, {
@@ -102,6 +103,7 @@ export async function upsertModelConfig(
     schemaInference: config.schemaInference ?? undefined,
     populateOrchestrator: config.populateOrchestrator ?? undefined,
     investigateSubagent: config.investigateSubagent ?? undefined,
+    searchProvider: config.searchProvider ?? undefined,
   });
 }
 
@@ -116,12 +118,15 @@ export async function getModelConfig(
   schemaInference: string;
   populateOrchestrator: string;
   investigateSubagent: string;
+  searchProvider: "searxng" | "exa";
 }> {
   const config = await convex.query(internal.modelConfig.getInternal, { userId });
+  const sp = (config as { searchProvider?: string } | null)?.searchProvider;
   return {
     schemaInference: config?.schemaInference ?? DEFAULT_MODEL_IDS.SCHEMA_INFERENCE,
     populateOrchestrator: config?.populateOrchestrator ?? DEFAULT_MODEL_IDS.POPULATE_ORCHESTRATOR,
     investigateSubagent: config?.investigateSubagent ?? DEFAULT_MODEL_IDS.INVESTIGATE_SUBAGENT,
+    searchProvider: sp === "exa" || sp === "searxng" ? sp : (env.SEARCH_PROVIDER as "searxng" | "exa"),
   };
 }
 
