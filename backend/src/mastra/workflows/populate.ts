@@ -163,6 +163,10 @@ const buildPromptOutputSchema = z.object({
   authContext: authContextSchema,
   columns: z.array(populateColumnSchema),
   maxRowCount: z.number().int().min(1),
+  // Also threaded for the Exa Websets path, which uses the raw description
+  // as the webset query (it does not use the agent prompt above).
+  datasetName: z.string(),
+  description: z.string(),
 });
 
 const buildPromptStep = createStep({
@@ -220,6 +224,8 @@ Stop the populate run as soon as the dataset reaches ${inputData.maxRowCount} ro
       authContext: inputData.authContext,
       columns: inputData.columns,
       maxRowCount: inputData.maxRowCount,
+      datasetName: inputData.datasetName,
+      description: inputData.description,
     };
   },
 });
@@ -252,6 +258,24 @@ const agentStep = createStep({
     let errorMsg: string | undefined;
 
     try {
+      // Exa engine: build the Set via an Exa Webset (find + verify + enrich)
+      // instead of the agent pipeline. The owned SearXNG path is unchanged
+      // below. The shared finally block records runStats.searchProvider="exa".
+      if (metrics.searchProvider === "exa") {
+        const { runWebsetsPopulate } = await import("../exa-websets.js");
+        const res = await runWebsetsPopulate({
+          datasetId: inputData.authorizedDatasetId,
+          datasetName: inputData.datasetName,
+          description: inputData.description,
+          columns: inputData.columns,
+          maxRowCount: inputData.maxRowCount,
+          signal: getSignal(inputData.authorizedDatasetId),
+        });
+        return {
+          text: `Exa Websets populate complete: ${res.inserted} rows inserted.`,
+        };
+      }
+
       const agent = buildPopulateAgent(
         inputData.authorizedDatasetId,
         inputData.authContext,
