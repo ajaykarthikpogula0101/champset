@@ -122,7 +122,8 @@ export default function NewDatasetPage() {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-muted">Loading...</p>
+        <span aria-hidden className="h-8 w-8 rounded-full border-2 border-border border-t-accent animate-spin" />
+        <span className="sr-only">Loading</span>
       </div>
     );
   }
