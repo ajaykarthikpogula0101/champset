@@ -7,8 +7,8 @@ Frontend on :3500, backend on :3501, Mastra Studio on :4111, Convex dashboard on
 ## Setup
 
 1. Copy `.env.example` to `.env` and fill in your keys:
-   - `TINYFISH_API_KEY` — from https://agent.tinyfish.ai/api-keys?utm_source=github&utm_medium=organic&utm_campaign=bigset-developer-2026q2
    - `OPENROUTER_API_KEY` — from https://openrouter.ai/settings/keys
+   - `EXA_API_KEY` (optional) — only needed when the Exa web engine is selected; from https://dashboard.exa.ai/api-keys
    - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — from Clerk API Keys
    - `CLERK_SECRET_KEY` — from Clerk API Keys
    - `CLERK_JWT_ISSUER_DOMAIN` — your Frontend API URL (e.g. `https://your-app.clerk.accounts.dev`)
@@ -28,14 +28,14 @@ Backend is Fastify + Mastra. Fastify serves the HTTP API (Clerk JWT auth on prot
 
 The schema inference pipeline: frontend calls `POST /infer-schema` → Fastify verifies the Clerk JWT → calls `inferSchema()` in `backend/src/pipeline/schema-inference.ts` → Claude Sonnet 4.6 via OpenRouter → returns a Zod-validated `DatasetSchema` → frontend maps it to editable columns in the wizard.
 
-The populate pipeline: frontend calls `POST /populate` with `{ datasetId, datasetName, description, columns }` → Fastify verifies the Clerk JWT → triggers `populateWorkflow` which: (1) clears existing rows, (2) builds a prompt from the schema, (3) runs the populate agent (Claude Sonnet 4.6) which searches the web via TinyFish APIs, then inserts rows into Convex one by one. Rows appear in realtime on the frontend via Convex reactive queries.
+The populate pipeline: frontend calls `POST /populate` with `{ datasetId, datasetName, description, columns }` → Fastify verifies the Clerk JWT → triggers `populateWorkflow` which: (1) clears existing rows, (2) builds a prompt from the schema, (3) runs the populate agent (Claude Sonnet 4.6) which searches the web via the self-hosted SearXNG backend (or Exa when that engine is selected), then inserts rows into Convex one by one. Rows appear in realtime on the frontend via Convex reactive queries.
 
 Convex functions use `ctx.auth.getUserIdentity()` to get the authenticated user. The `ownerId` field on datasets stores `identity.subject` (Clerk user ID). Do not pass `ownerId` from the client.
 
 ## Environment Variables
 
 Root `.env` is the only local env file. Docker Compose, package scripts, and Convex CLI helper targets all read it. Key variables:
-- `TINYFISH_API_KEY` — used by the populate agent for web search and fetch (get one at https://agent.tinyfish.ai/api-keys?utm_source=github&utm_medium=organic&utm_campaign=bigset-developer-2026q2)
+- `SEARCH_PROVIDER` / `EXA_API_KEY` — select the agent web engine (`searxng` default, or `exa`). SearXNG needs no key; Exa needs `EXA_API_KEY`.
 - `OPENROUTER_API_KEY` — used by backend and Mastra for AI model calls
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` — shared by frontend and backend
 - `CONVEX_SELF_HOSTED_ADMIN_KEY` — used by backend for system-level Convex writes
