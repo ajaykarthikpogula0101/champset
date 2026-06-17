@@ -91,9 +91,13 @@ interface WebsetItem {
     references?: Array<{ url?: string }>;
   }>;
 }
+interface WebsetSearch {
+  status?: string;
+}
 interface Webset {
   id: string;
   status?: string;
+  searches?: WebsetSearch[];
   enrichments?: WebsetEnrichment[];
   items?: WebsetItem[];
 }
@@ -230,7 +234,13 @@ export async function runWebsetsPopulate(params: {
 
   log(logger, `webset ${websetId} created; waiting for items + enrichments`);
 
-  // 2. Poll until idle (all searches + enrichments done) or timeout.
+  // 2. Poll until the data is usable. A webset's own "idle" status can lag
+  // well behind the items actually being found and enriched, so we stop as
+  // soon as the search has finished and every found item has all of its
+  // enrichment results (or on idle / timeout / user abort). An enrichment that
+  // ran but found nothing still appears in item.enrichments with result null,
+  // so a length check tells us every enrichment has completed.
+  const nEnrich = enrichments.length;
   const deadline = Date.now() + IDLE_TIMEOUT_MS;
   let status = "running";
   while (Date.now() < deadline) {
@@ -243,9 +253,17 @@ export async function runWebsetsPopulate(params: {
       await api("GET", `/websets/${websetId}?expand=items`)
     ).json()) as Webset;
     status = ws.status ?? "running";
-    const itemCount = ws.items?.length ?? 0;
-    log(logger, `status=${status} items=${itemCount}`);
+    const items = ws.items ?? [];
+    const searchesDone = (ws.searches ?? []).every(
+      (s) => s.status === "completed" || s.status === "canceled",
+    );
+    const ready = items.filter(
+      (it) => (it.enrichments ?? []).length >= nEnrich,
+    ).length;
+    log(logger, `status=${status} items=${items.length} ready=${ready} searchesDone=${searchesDone}`);
     if (status === "idle") break;
+    if (searchesDone && items.length > 0 && ready >= Math.min(maxRowCount, items.length))
+      break;
     await sleep(POLL_MS);
   }
 
