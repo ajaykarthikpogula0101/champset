@@ -78,6 +78,23 @@ const enumerateStep = createStep({
   execute: async ({ inputData }) => {
     console.log(`[enumerate] Classifying dataset ${inputData.datasetId}`);
 
+    // Exa (Variation B) builds the whole Set through Exa Websets in the agent
+    // step and ignores the enumeration result entirely. Skip the classification
+    // model call so a Variation B build makes ZERO OpenRouter calls and never
+    // touches the orchestrator model.
+    if (
+      resolveProviderName(inputData.authContext?.modelConfig?.searchProvider) ===
+      "exa"
+    ) {
+      console.log("[enumerate] Exa engine selected; skipping classification (Exa enumerates its own results).");
+      return {
+        ...inputData,
+        enumerationStrategy: "search" as const,
+        manifest: [],
+        sourceUrl: undefined,
+      };
+    }
+
     const dataset = await convex.query(internal.datasets.getInternal, {
       id: inputData.datasetId,
     });
