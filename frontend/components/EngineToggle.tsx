@@ -41,11 +41,12 @@ function EngineSegment({
 }
 
 /**
- * Dashboard discovery-engine switch. Flips the signed-in user's default web
- * engine between the owned SearXNG pipeline ("Proprietary") and Exa. The
- * choice is saved to modelConfig.searchProvider and applied to every new Set
- * the user builds; each run is tagged with the engine it used (runStats) so
- * the two can be compared during the bake-off.
+ * Dashboard build-variation switch. Flips the signed-in user's default web
+ * engine between the owned SearXNG pipeline and Exa. For the blind A/B test the
+ * UI labels these neutrally as "Variation A" (searxng) and "Variation B" (exa)
+ * so raters never see which engine built a Set. The real engine is still saved
+ * to modelConfig.searchProvider and tagged on every run (runStats) for
+ * de-blinded analysis by the data team.
  */
 export function EngineToggle({ className = "" }: { className?: string }) {
   const { isAuthenticated } = useConvexAuth();
@@ -63,24 +64,24 @@ export function EngineToggle({ className = "" }: { className?: string }) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <span className="text-[11px] uppercase tracking-wide text-muted hidden sm:inline">
-        Engine
+        Variant
       </span>
       <div
         role="group"
-        aria-label="Discovery engine"
+        aria-label="Build variation"
         className="inline-flex items-center rounded-lg border border-border bg-surface p-0.5"
       >
         <EngineSegment
           engine="searxng"
-          label="Proprietary"
-          hint="ChampSet owned engine: self-hosted SearXNG search + Readability fetch. No data API."
+          label="Variation A"
+          hint="Build variation A (blind A/B test)."
           active={active}
           onChoose={choose}
         />
         <EngineSegment
           engine="exa"
-          label="Exa"
-          hint="Exa engine: Exa neural search + contents for all web access."
+          label="Variation B"
+          hint="Build variation B (blind A/B test)."
           active={active}
           onChoose={choose}
         />

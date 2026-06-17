@@ -54,15 +54,10 @@ export function DatasetCard({ dataset }: { dataset: DatasetCardData }) {
             <div className="flex items-center gap-3">
               <StatusBadge status={dataset.status} />
               <span
-                className={[
-                  "text-[11px] font-medium px-1.5 py-0.5 rounded",
-                  dataset.searchProvider === "exa"
-                    ? "bg-accent text-accent-text"
-                    : "bg-surface text-muted border border-border",
-                ].join(" ")}
-                title="Web engine used to build this Set"
+                className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-surface text-muted border border-border"
+                title="Build variation (blind A/B test)"
               >
-                {dataset.searchProvider === "exa" ? "Exa" : "Proprietary"}
+                {dataset.searchProvider === "exa" ? "Variation B" : "Variation A"}
               </span>
               <span className="text-[11px] text-muted">
                 {refreshCadenceLabel(dataset.refreshCadence)}
