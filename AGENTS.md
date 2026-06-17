@@ -3,7 +3,7 @@
 ## Architecture
 
 - **Frontend** (`frontend/`): Next.js 16, React 19, Tailwind 4. Pure UI — no server-side auth logic.
-- **Backend** (`backend/`): Fastify, TypeScript, ESM. Owns auth, database, and will own TinyFish API calls + cron jobs.
+- **Backend** (`backend/`): Fastify, TypeScript, ESM. Owns auth, database, the agent web layer (SearXNG/Exa), and cron jobs.
 - Auth requests from the browser hit `/api/auth/*` on the frontend, which proxies them to the backend via Next.js rewrites. This is intentional — do not add auth API routes to the frontend.
 
 ## What not to do

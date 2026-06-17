@@ -1,9 +1,11 @@
 import { Agent } from "@mastra/core/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { buildPopulateTools } from "../tools/dataset-tools.js";
-import { searchWebTool, fetchPageTool } from "../tools/web-tools.js";
+import { buildWebTools } from "../tools/web-tools.js";
+import { getWebProvider, resolveProviderName } from "../tools/web-providers/index.js";
 import type { AuthContext } from "../workflows/populate.js";
 import type { PopulateColumn } from "../../pipeline/populate.js";
+import { DEFAULT_MODEL_IDS } from "../../config/models.js";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
@@ -60,15 +62,22 @@ export function buildRefreshAgent(
     authorizedDatasetId,
     authContext,
   );
+  const provider = getWebProvider(
+    resolveProviderName(authContext.modelConfig?.searchProvider),
+  );
+  const { search_web, fetch_page } = buildWebTools(provider);
   return new Agent({
     id: "refresh-agent",
     name: "Dataset Refresh Agent",
     instructions: buildRefreshInstructions(columns),
-    model: openrouter("qwen/qwen3.7-max"),
+    model: openrouter(
+      authContext.modelConfig?.investigateSubagent ??
+        DEFAULT_MODEL_IDS.INVESTIGATE_SUBAGENT,
+    ),
     tools: {
       update_row,
-      search_web: searchWebTool,
-      fetch_page: fetchPageTool,
+      search_web,
+      fetch_page,
     },
   });
 }

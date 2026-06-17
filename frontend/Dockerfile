@@ -32,4 +32,6 @@ WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1
 COPY --from=build /app ./
 EXPOSE 3500
-CMD ["bunx", "next", "start", "--port", "3500", "--hostname", "0.0.0.0"]
+# Listen on $PORT (Railway injects it) and fall back to 3500 for local runs.
+# sh -c so ${PORT} expands at runtime instead of being passed literally.
+CMD ["sh", "-c", "bunx next start --port ${PORT:-3500} --hostname 0.0.0.0"]

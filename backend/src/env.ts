@@ -37,6 +37,23 @@ export const env = {
 
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
 
+  // Clerk user ids allowed to edit the app-wide model configuration (and
+  // refresh the shared model catalog). Comma-separated; empty array when
+  // unset, which locks model editing for everyone. This is the single source
+  // of truth for admin status. Never ship it to the browser; the frontend
+  // learns isAdmin only via the authenticated GET /settings/models response.
+  ADMIN_USER_IDS: (process.env.ADMIN_USER_IDS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
+
+  // Web discovery engine for the agents. "searxng" = owned SearXNG +
+  // Readability (no key). "exa" = Exa /search + /contents (needs EXA_API_KEY).
+  // This is the app-wide default; a per-user or per-dataset choice overrides it.
+  SEARCH_PROVIDER: process.env.SEARCH_PROVIDER === "exa" ? "exa" : "searxng",
+  // Exa API key. Required only when the Exa engine is active.
+  EXA_API_KEY: process.env.EXA_API_KEY,
+
   // Default models — used when a user has not saved a preference.
   // Each must be a valid OpenRouter model slug.
   SCHEMA_INFERENCE_MODEL:

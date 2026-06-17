@@ -1,7 +1,8 @@
 import { Agent } from "@mastra/core/agent";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { buildSubagentTool } from "../tools/investigate-tool.js";
-import { searchWebTool, fetchPageTool } from "../tools/web-tools.js";
+import { buildWebTools } from "../tools/web-tools.js";
+import { getWebProvider, resolveProviderName } from "../tools/web-providers/index.js";
 import type { AuthContext } from "../workflows/populate.js";
 import type { PopulateColumn } from "../../pipeline/populate.js";
 import type { RunMetrics } from "../run-metrics.js";
@@ -48,6 +49,10 @@ export function buildPopulateAgent(
   metrics?: RunMetrics,
 ): Agent {
   const modelSlug = authContext.modelConfig!.populateOrchestrator;
+  const provider = getWebProvider(
+    resolveProviderName(authContext.modelConfig?.searchProvider),
+  );
+  const { search_web, fetch_page } = buildWebTools(provider);
 
   return new Agent({
     id: "populate-agent",
@@ -55,8 +60,8 @@ export function buildPopulateAgent(
     instructions: buildInstructions(maxRowCount),
     model: openrouter(modelSlug),
     tools: {
-      search_web: searchWebTool,
-      fetch_page: fetchPageTool,
+      search_web,
+      fetch_page,
       run_subagent: buildSubagentTool(
         authorizedDatasetId,
         authContext,

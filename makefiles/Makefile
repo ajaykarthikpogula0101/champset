@@ -49,11 +49,6 @@ validate-dev-env:
 		echo ""; \
 		for key in $$missing; do \
 			case $$key in \
-				TINYFISH_API_KEY) \
-					echo "  ✗ $$key"; \
-					echo "    → Create account → API Keys → Create Key"; \
-					echo "    https://agent.tinyfish.ai/api-keys?utm_source=github&utm_medium=organic&utm_campaign=bigset-developer-2026q2"; \
-					echo "";; \
 				OPENROUTER_API_KEY) \
 					echo "  ✗ $$key"; \
 					echo "    → Create account → Settings → Keys → Create Key"; \

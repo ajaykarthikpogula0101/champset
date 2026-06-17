@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ConvexClientProvider } from "./convex-provider";
 import { AnalyticsProvider } from "@/lib/analytics-provider";
+import { HelpButton } from "@/components/HelpButton";
 import "./globals.css";
 
 // Champions Group brand typeface: Inter (web).
@@ -53,6 +54,7 @@ export default function RootLayout({
         >
           <ConvexClientProvider>
             <AnalyticsProvider>{children}</AnalyticsProvider>
+            <HelpButton />
           </ConvexClientProvider>
         </ClerkProvider>
       </body>

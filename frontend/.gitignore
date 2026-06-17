@@ -38,8 +38,10 @@ yarn-error.log*
 package-lock.json
 yarn.lock
 
-# convex generated
-convex/_generated/
+# convex generated: committed on purpose so container builds (Railway, Docker)
+# can resolve @/convex/_generated/* without running codegen against a live
+# Convex. api.js/server.js are generic proxies; the .d.ts types derive from
+# source at compile time. Regenerate with `make convex-push` / convex codegen.
 
 # vercel
 .vercel

@@ -1,6 +1,6 @@
 # ChampSet Backend
 
-Fastify server that handles auth, database, and talks to TinyFish APIs.
+Fastify server that handles auth, database, and the agent web layer (SearXNG/Exa).
 
 ## Running
 

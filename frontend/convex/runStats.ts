@@ -39,6 +39,7 @@ export const insert = internalMutation({
       v.union(v.literal("populate"), v.literal("update"))
     ),
     rowsUpdated: v.optional(v.number()),
+    searchProvider: v.optional(v.union(v.literal("searxng"), v.literal("exa"))),
   },
   handler: async (ctx, args) => {
     if (args.status === "success" && args.error) {

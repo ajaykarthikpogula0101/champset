@@ -17,6 +17,7 @@ export interface DatasetCardData {
   previewRows: Record<string, unknown>[];
   rowCount: number;
   visibility?: "public" | "private";
+  searchProvider?: "searxng" | "exa";
 }
 
 /**
@@ -52,6 +53,12 @@ export function DatasetCard({ dataset }: { dataset: DatasetCardData }) {
           <div className="px-5 py-3 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
               <StatusBadge status={dataset.status} />
+              <span
+                className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-surface text-muted border border-border"
+                title="Build variation (blind A/B test)"
+              >
+                {dataset.searchProvider === "exa" ? "Variation B" : "Variation A"}
+              </span>
               <span className="text-[11px] text-muted">
                 {refreshCadenceLabel(dataset.refreshCadence)}
               </span>

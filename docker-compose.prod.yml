@@ -84,6 +84,8 @@ services:
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
       CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      # Comma-separated Clerk user ids allowed to edit the app-wide model config.
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
       SCHEMA_INFERENCE_MODEL: ${SCHEMA_INFERENCE_MODEL:-anthropic/claude-sonnet-4.6}
       POPULATE_ORCHESTRATOR_MODEL: ${POPULATE_ORCHESTRATOR_MODEL:-qwen/qwen3.7-max}
       INVESTIGATE_SUBAGENT_MODEL: ${INVESTIGATE_SUBAGENT_MODEL:-qwen/qwen3.7-max}

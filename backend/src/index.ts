@@ -3,6 +3,7 @@ import fastifyCors from "@fastify/cors";
 import type { ClerkClient } from "@clerk/backend";
 
 import { env } from "./env.js";
+import { isAdmin } from "./authz.js";
 import clerkAuthPlugin, { requireAuth, getUserEmail } from "./clerk-auth.js";
 import { inferSchema } from "./pipeline/schema-inference.js";
 import { datasetContextSchema, type DatasetContext } from "./pipeline/populate.js";
@@ -40,6 +41,30 @@ type UpdateWorkflowRun = Awaited<ReturnType<typeof updateWorkflow.createRun>>;
 
 function statusErrorMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
+  const lower = message.toLowerCase();
+
+  // Map common upstream AI failures to messages a non-engineer tester can act
+  // on. The raw provider strings ("Key limit exceeded (weekly limit)",
+  // "Populate workflow completed with 0 rows") are accurate but cryptic, and
+  // the "0 rows" one in particular masks the real cause (the agent could not
+  // make a single model call because the shared AI budget was spent).
+  if (
+    lower.includes("key limit exceeded") ||
+    lower.includes("weekly limit") ||
+    (lower.includes("limit") && lower.includes("exceeded"))
+  ) {
+    return "The shared AI budget for this period has been reached, so the builder could not run. Please try again later or contact the admin (deep@championsmail.com).";
+  }
+  if (lower.includes("insufficient") && lower.includes("credit")) {
+    return "The AI account is out of credits. Please contact the admin (deep@championsmail.com).";
+  }
+  if (lower.includes("rate limit") || lower.includes("429")) {
+    return "The AI service is busy right now (rate limited). Please wait a moment and try building again.";
+  }
+  if (lower.includes("completed with 0 rows")) {
+    return "The builder finished without finding any rows. Try rephrasing the Set description to be more specific, or try the other variation.";
+  }
+
   return message.slice(0, 500);
 }
 
@@ -209,6 +234,7 @@ async function runUpdateWorkflowInBackground({
     schemaInference: string;
     populateOrchestrator: string;
     investigateSubagent: string;
+    searchProvider?: "searxng" | "exa";
   };
 }): Promise<void> {
   const datasetId = input.datasetId;
@@ -313,6 +339,7 @@ async function runScheduledUpdateWorkflowInBackground({
     schemaInference: string;
     populateOrchestrator: string;
     investigateSubagent: string;
+    searchProvider?: "searxng" | "exa";
   };
 }): Promise<void> {
   const datasetId = input.datasetId;
@@ -387,6 +414,7 @@ async function runPopulateWorkflowInBackground({
     schemaInference: string;
     populateOrchestrator: string;
     investigateSubagent: string;
+    searchProvider?: "searxng" | "exa";
   };
 }): Promise<void> {
   const datasetId = input.datasetId;
@@ -508,6 +536,53 @@ async function backfillDatasetRefreshSettings(
   }
 }
 
+/**
+ * Recover orphaned builds left over from a previous process.
+ *
+ * A populate/update workflow runs in-process (see runPopulateWorkflowInBackground).
+ * If the server restarts mid-build (a redeploy, a crash), that work dies and
+ * nothing ever moves the dataset out of "building"/"updating", so it shows
+ * "Building..." forever and cannot be re-run (beginPopulateInternal rejects an
+ * already-building dataset). This sweep marks every such row failed so the user
+ * can rebuild it.
+ *
+ * MUST run during boot BEFORE the server accepts traffic (fastify.listen) and
+ * BEFORE the refresh scheduler's first tick: that ordering is the guarantee
+ * that any in-flight row found here is a real pre-restart orphan and not a run
+ * that just started. The mutation also re-checks status as defense-in-depth.
+ */
+async function sweepOrphanedBuilds(logger: FastifyBaseLogger): Promise<void> {
+  try {
+    const stuck = (await convex.query(
+      internal.datasets.listStuckRunsInternal,
+      {},
+    )) as Array<{ id: string; name: string; status: string }>;
+    if (stuck.length === 0) {
+      logger.info("Orphaned-build sweep: none found");
+      return;
+    }
+    let reset = 0;
+    for (const run of stuck) {
+      try {
+        const res = (await convex.mutation(
+          internal.datasets.failOrphanedRunInternal,
+          { id: run.id },
+        )) as { changed: boolean };
+        if (res.changed) reset += 1;
+      } catch (err) {
+        logger.error({ err, datasetId: run.id }, "Failed to reset orphaned build");
+      }
+    }
+    logger.info(
+      { found: stuck.length, reset },
+      "Orphaned-build sweep complete",
+    );
+  } catch (err) {
+    // Never block boot on the sweep; log and continue.
+    logger.error({ err }, "Orphaned-build sweep failed");
+  }
+}
+
 function startLocalRefreshScheduler(
   logger: FastifyBaseLogger,
 ): ReturnType<typeof setInterval> | null {
@@ -560,8 +635,19 @@ function startLocalRefreshScheduler(
         }
 
         const dataset = claim.dataset;
-        const { getModelConfig } = await import("./config/models.js");
-        const modelConfig = await getModelConfig(dataset.ownerId);
+        const { getGlobalModelConfig } = await import("./config/models.js");
+        const baseModelConfig = await getGlobalModelConfig();
+        // Per-Set engine override: a scheduled refresh reuses the same web
+        // layer the Set was built with, falling back to the owned default.
+        const scheduledProvider = (dataset as { searchProvider?: string })
+          .searchProvider;
+        const modelConfig = {
+          ...baseModelConfig,
+          searchProvider:
+            scheduledProvider === "exa" || scheduledProvider === "searxng"
+              ? scheduledProvider
+              : baseModelConfig.searchProvider,
+        };
 
         void runScheduledUpdateWorkflowInBackground({
           input: {
@@ -615,6 +701,10 @@ await fastify.register(fastifyCors, {
 await fastify.register(clerkAuthPlugin);
 
 await backfillDatasetRefreshSettings(fastify.log);
+// Reset builds orphaned by the previous process BEFORE the scheduler can tick
+// and BEFORE the server accepts traffic (fastify.listen, below), so we only
+// touch real pre-restart orphans.
+await sweepOrphanedBuilds(fastify.log);
 const refreshScheduler = startLocalRefreshScheduler(fastify.log);
 
 // Flush queued PostHog events on graceful shutdown so a SIGTERM mid-flight
@@ -632,6 +722,12 @@ fastify.get("/health", async () => ({ status: "ok" }));
 
 
 fastify.post("/openrouter/refresh", { preHandler: requireAuth }, async (req, reply) => {
+  // Refreshing the shared model catalog is an admin-only mutation: it
+  // overwrites the openRouterModels table that every user's model list reads
+  // from. Gate it the same way as model-config writes.
+  if (!isAdmin(req.auth!.userId)) {
+    return reply.code(403).send({ error: "Model settings are managed by an administrator." });
+  }
   const { fetchModelsFromOpenRouter, upsertModelBatch } = await import("./config/models.js");
   try {
     const models = await fetchModelsFromOpenRouter();
@@ -663,13 +759,27 @@ await fastify.register(async (instance) => {
   instance.addHook("preHandler", requireAuth);
 
   instance.get("/settings/models", async (req) => {
-    const { getModelConfig } = await import("./config/models.js");
-    const config = await getModelConfig(req.auth!.userId);
-    return { config };
+    // The model slugs are the app-wide (admin-controlled) config; return those
+    // plus whether the caller is an admin so the UI can show the editor or a
+    // read-only view. The engine toggle (searchProvider) is a separate,
+    // per-user choice read directly from Convex by the dashboard, so it is not
+    // part of this response.
+    const { getGlobalModelConfig } = await import("./config/models.js");
+    const config = await getGlobalModelConfig();
+    return { config, isAdmin: isAdmin(req.auth!.userId) };
   });
 
+  // Writes the app-wide MODEL SLUGS. Admin-only: a non-admin gets 403 before
+  // anything is validated or written. The per-user engine choice
+  // (searchProvider, the Variation A/B toggle) is NOT handled here. That is an
+  // unprivileged per-user setting written straight to Convex by the dashboard
+  // toggle, so every tester keeps the ability to pick a variation.
   instance.post("/settings/models", async (req, reply) => {
-    const { upsertModelConfig, validateModelSlug, getCachedModels } = await import("./config/models.js");
+    if (!isAdmin(req.auth!.userId)) {
+      return reply.code(403).send({ error: "Model settings are managed by an administrator." });
+    }
+
+    const { upsertModelConfig, getCachedModels, GLOBAL_CONFIG_KEY } = await import("./config/models.js");
     const body = req.body as {
       schemaInference?: string | null;
       populateOrchestrator?: string | null;
@@ -698,7 +808,9 @@ await fastify.register(async (instance) => {
     }
 
     try {
-      await upsertModelConfig(req.auth!.userId, {
+      // Write to the shared global row, never searchProvider (engine stays
+      // per-user + per-dataset). Slugs here apply to everyone's runs.
+      await upsertModelConfig(GLOBAL_CONFIG_KEY, {
         schemaInference: body.schemaInference ?? undefined,
         populateOrchestrator: body.populateOrchestrator ?? undefined,
         investigateSubagent: body.investigateSubagent ?? undefined,
@@ -721,8 +833,8 @@ await fastify.register(async (instance) => {
       let modelSlug = body.modelSlug;
 
       if (!modelSlug && auth) {
-        const { getModelConfig } = await import("./config/models.js");
-        const config = await getModelConfig(auth.userId);
+        const { getGlobalModelConfig } = await import("./config/models.js");
+        const config = await getGlobalModelConfig();
         if (config?.schemaInference) {
           modelSlug = config.schemaInference;
         }
@@ -780,8 +892,18 @@ await fastify.register(async (instance) => {
         return reply.code(404).send({ error: "Dataset not found" });
       }
 
-      const { getModelConfig } = await import("./config/models.js");
-      const modelConfig = await getModelConfig(auth.userId);
+      const { getGlobalModelConfig } = await import("./config/models.js");
+      const baseModelConfig = await getGlobalModelConfig();
+      // Per-Set engine override: a dataset may pin "searxng" or "exa".
+      // Otherwise use the owned default (env SEARCH_PROVIDER) from the global config.
+      const datasetProvider = (dataset as { searchProvider?: string }).searchProvider;
+      const modelConfig = {
+        ...baseModelConfig,
+        searchProvider:
+          datasetProvider === "exa" || datasetProvider === "searxng"
+            ? datasetProvider
+            : baseModelConfig.searchProvider,
+      };
 
       let run: Awaited<ReturnType<typeof populateWorkflow.createRun>>;
       try {
@@ -867,8 +989,24 @@ await fastify.register(async (instance) => {
         return reply.code(502).send({ error: "Failed to update dataset. Please try again." });
       }
 
-      const { getModelConfig } = await import("./config/models.js");
-      const modelConfig = await getModelConfig(auth.userId);
+      const { getGlobalModelConfig } = await import("./config/models.js");
+      const baseModelConfig = await getGlobalModelConfig();
+      // Per-Set engine override: honor the engine pinned on the dataset so a
+      // manual update reuses the same web layer the Set was built with, then
+      // fall back to the owned default (env SEARCH_PROVIDER) from the global config.
+      const updateDataset = await convex.query(internal.datasets.getInternal, {
+        id: parsed.data.datasetId,
+      });
+      const updateDatasetProvider = (
+        updateDataset as { searchProvider?: string } | null
+      )?.searchProvider;
+      const modelConfig = {
+        ...baseModelConfig,
+        searchProvider:
+          updateDatasetProvider === "exa" || updateDatasetProvider === "searxng"
+            ? updateDatasetProvider
+            : baseModelConfig.searchProvider,
+      };
 
       // Register before void-ing so the abort-registry entry is visible the
       // instant the 202 is sent, closing the TOCTOU window where a /stop

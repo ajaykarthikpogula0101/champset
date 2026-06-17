@@ -11,6 +11,7 @@ import {
   type DatasetCardData,
 } from "@/components/dataset/DatasetCard";
 import { useTheme } from "@/components/ThemeToggle";
+import { EngineToggle } from "@/components/EngineToggle";
 import { EVENTS, track } from "@/lib/analytics";
 import type { ProfileUser } from "@/lib/profile-user";
 
@@ -71,7 +72,8 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-muted">Loading...</p>
+        <span aria-hidden className="h-8 w-8 rounded-full border-2 border-border border-t-accent animate-spin" />
+        <span className="sr-only">Loading</span>
       </div>
     );
   }
@@ -84,6 +86,17 @@ export default function DashboardPage() {
         <img src="/champset-logo.svg" alt="ChampSet" className="h-[30px] dark:hidden" />
         <img src="/champset-logo-dark.svg" alt="ChampSet" className="h-[30px] hidden dark:block" />
         <div className="flex items-center gap-4">
+          <EngineToggle />
+          <Link
+            href="/compare"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-foreground/[0.05]"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="18" rx="1" />
+              <rect x="14" y="3" width="7" height="18" rx="1" />
+            </svg>
+            Compare
+          </Link>
           <ProfileMenu user={user} onSignOut={() => signOut()} />
         </div>
       </header>

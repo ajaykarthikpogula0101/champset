@@ -306,7 +306,8 @@ export default function DatasetPage() {
   if (authLoading || dataset === undefined || rows === undefined) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="text-muted">Loading...</p>
+        <span aria-hidden className="h-8 w-8 rounded-full border-2 border-border border-t-accent animate-spin" />
+        <span className="sr-only">Loading</span>
       </div>
     );
   }
@@ -364,6 +365,12 @@ export default function DatasetPage() {
             {dataset.name}
           </h1>
           <StatusBadge status={dataset.status} />
+          <span
+            className="hidden sm:inline-block text-[11px] font-medium px-1.5 py-0.5 rounded bg-surface text-muted border border-border shrink-0"
+            title="Build variation (blind A/B test)"
+          >
+            {dataset.searchProvider === "exa" ? "Variation B" : "Variation A"}
+          </span>
         </div>
         <div className="flex items-center gap-1.5">
           <ExportDropdown
@@ -430,6 +437,16 @@ export default function DatasetPage() {
           {dataset.status === "failed" && dataset.lastStatusError && (
             <p role="status" className="mt-1 truncate text-xs font-medium text-red-600 dark:text-red-400">
               Last populate failed: {dataset.lastStatusError}
+            </p>
+          )}
+          {isDatasetBusy && (
+            <p role="status" className="mt-1 flex items-center gap-2 text-xs font-medium text-accent">
+              <span
+                aria-hidden
+                className="h-3 w-3 shrink-0 rounded-full border-2 border-border border-t-accent animate-spin"
+              />
+              {dataset.status === "updating" ? "Refreshing" : "Building"} your Set.{" "}
+              {rows.length} {rows.length === 1 ? "row" : "rows"} so far.
             </p>
           )}
         </div>

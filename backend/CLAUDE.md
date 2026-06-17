@@ -30,7 +30,7 @@ The pipeline is a pure function (`inferSchema(prompt) → DatasetSchema`). It is
 - `src/mastra/agents/investigate.ts` — `buildInvestigateAgent(authorizedDatasetId, authContext, columns)`, builds a per-entity subagent with `insert_row`, `list_rows`, `search_web`, `fetch_page`. Researches one entity, inserts at most one row, returns structured feedback (`INSERTED/SUMMARY/CLUES/REASON`).
 - `src/mastra/tools/investigate-tool.ts` — `buildInvestigateTool(authorizedDatasetId, authContext, columns)` creates the `investigate_row` tool. The orchestrator calls it to hand off a lead; it spawns a fresh investigate agent, runs it (maxSteps: 25), parses the structured output, and returns it to the orchestrator. Errors are caught and returned as structured failures so the orchestrator can self-correct.
 - `src/mastra/tools/dataset-tools.ts` — `buildPopulateTools(authorizedDatasetId, authContext)` factory returning 5 Convex-backed tools: `insert_row`, `list_rows`, `get_row`, `update_row`, `delete_row`. The dataset id is captured by closure so the LLM cannot redirect writes to other datasets; `authContext` (Clerk userId + workflow run id) is captured for caller-attribution in security logs and the `CAPABILITY_VIOLATION` PostHog event. See the security note at the top of the file.
-- `src/mastra/tools/web-tools.ts` — 2 TinyFish API tools: `search_web`, `fetch_page`
+- `src/mastra/tools/web-tools.ts` — `buildWebTools(provider)` factory for the `search_web` + `fetch_page` tools, bound per run to the selected web engine (SearXNG or Exa)
 
 The populate workflow builds a fresh orchestrator per run via `buildPopulateAgent(...)` and calls `.generate(prompt, { maxSteps: 80 })`. The orchestrator spawns up to 3 investigate subagents in parallel via `investigate_row`. Per-run construction is required by the capability-scoping security model (closure-bound dataset id); do not cache or share agents across runs.
 
@@ -49,6 +49,6 @@ Required env vars (see `.env.example`):
 - `CONVEX_SELF_HOSTED_ADMIN_KEY` — for system-level Convex writes (internal mutations)
 - `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY` — for JWT verification
 - `OPENROUTER_API_KEY` — for AI model calls
-- `TINYFISH_API_KEY` — for web search and fetch (populate agent). Get one at https://agent.tinyfish.ai/api-keys?utm_source=github&utm_medium=organic&utm_campaign=bigset-developer-2026q2
+- `SEARXNG_URL` — self-hosted SearXNG endpoint for the owned web engine. `SEARCH_PROVIDER` (`searxng` default, or `exa`) selects the engine; `EXA_API_KEY` is required only for Exa
 
 In Docker, these are interpolated from the root `.env` file via `docker-compose.dev.yml`.
