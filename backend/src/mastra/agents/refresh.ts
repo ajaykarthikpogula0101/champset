@@ -5,6 +5,7 @@ import { buildWebTools } from "../tools/web-tools.js";
 import { getWebProvider, resolveProviderName } from "../tools/web-providers/index.js";
 import type { AuthContext } from "../workflows/populate.js";
 import type { PopulateColumn } from "../../pipeline/populate.js";
+import { DEFAULT_MODEL_IDS } from "../../config/models.js";
 
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
@@ -69,7 +70,10 @@ export function buildRefreshAgent(
     id: "refresh-agent",
     name: "Dataset Refresh Agent",
     instructions: buildRefreshInstructions(columns),
-    model: openrouter("qwen/qwen3.7-max"),
+    model: openrouter(
+      authContext.modelConfig?.investigateSubagent ??
+        DEFAULT_MODEL_IDS.INVESTIGATE_SUBAGENT,
+    ),
     tools: {
       update_row,
       search_web,
