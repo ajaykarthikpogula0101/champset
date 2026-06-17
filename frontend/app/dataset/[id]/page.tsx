@@ -433,6 +433,17 @@ export default function DatasetPage() {
               Last populate failed: {dataset.lastStatusError}
             </p>
           )}
+          {isDatasetBusy && (
+            <p role="status" className="mt-1 flex items-center gap-2 text-xs font-medium text-accent">
+              <span
+                aria-hidden
+                className="h-3 w-3 shrink-0 rounded-full border-2 border-border border-t-accent animate-spin"
+              />
+              {dataset.status === "updating" ? "Refreshing" : "Building"} your Set
+              {dataset.searchProvider === "exa" ? " via Exa" : ""}. {rows.length}{" "}
+              {rows.length === 1 ? "row" : "rows"} so far.
+            </p>
+          )}
         </div>
         <div className="ml-auto flex items-center gap-4 text-[11px] text-muted shrink-0">
           {selectedCount > 0 && (

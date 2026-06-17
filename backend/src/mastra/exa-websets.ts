@@ -234,21 +234,27 @@ export async function runWebsetsPopulate(params: {
 
   log(logger, `webset ${websetId} created; waiting for items + enrichments`);
 
-  // 2. Poll until the data is usable. A webset's own "idle" status can lag
-  // well behind the items actually being found and enriched, so we stop as
-  // soon as the search has finished and every found item has all of its
-  // enrichment results (or on idle / timeout / user abort). An enrichment that
-  // ran but found nothing still appears in item.enrichments with result null,
-  // so a length check tells us every enrichment has completed.
+  // 2. Stream rows in as the webset finds and enriches them. We insert each
+  // item the moment all of its enrichments have run, so the dataset's row
+  // count climbs live during the build (visible progress) instead of jumping
+  // from 0 to N at the end. An enrichment that found nothing still appears in
+  // item.enrichments (with a null result), so an enrichment-count check tells
+  // us an item is fully processed. We finish when we have maxRowCount rows, or
+  // the search finished and every found item is inserted, or the webset goes
+  // idle, or on timeout / abort.
   const nEnrich = enrichments.length;
+  const insertedIds = new Set<string>();
+  let inserted = 0;
   const deadline = Date.now() + IDLE_TIMEOUT_MS;
   let status = "running";
-  while (Date.now() < deadline) {
+
+  while (Date.now() < deadline && inserted < maxRowCount) {
     if (signal?.aborted) {
       log(logger, "aborted by user; cancelling webset");
       await api("POST", `/websets/${websetId}/cancel`).catch(() => {});
       break;
     }
+
     const ws = (await (
       await api("GET", `/websets/${websetId}?expand=items`)
     ).json()) as Webset;
@@ -257,58 +263,50 @@ export async function runWebsetsPopulate(params: {
     const searchesDone = (ws.searches ?? []).every(
       (s) => s.status === "completed" || s.status === "canceled",
     );
-    const ready = items.filter(
-      (it) => (it.enrichments ?? []).length >= nEnrich,
-    ).length;
-    log(logger, `status=${status} items=${items.length} ready=${ready} searchesDone=${searchesDone}`);
-    if (status === "idle") break;
-    if (searchesDone && items.length > 0 && ready >= Math.min(maxRowCount, items.length))
-      break;
-    await sleep(POLL_MS);
-  }
 
-  // 3. Fetch the final item set (paginated) and insert each as a row.
-  const items: WebsetItem[] = [];
-  let cursor: string | undefined;
-  do {
-    const q = cursor
-      ? `/websets/${websetId}/items?limit=100&cursor=${encodeURIComponent(cursor)}`
-      : `/websets/${websetId}/items?limit=100`;
-    const page = (await (await api("GET", q)).json()) as {
-      data?: WebsetItem[];
-      hasMore?: boolean;
-      nextCursor?: string | null;
-    };
-    items.push(...(page.data ?? []));
-    cursor = page.hasMore ? page.nextCursor ?? undefined : undefined;
-  } while (cursor && items.length < maxRowCount);
-
-  log(logger, `inserting up to ${maxRowCount} of ${items.length} items`);
-
-  let inserted = 0;
-  for (const item of items) {
-    if (inserted >= maxRowCount) break;
-    if (signal?.aborted) break;
-    const data = itemToRow(item, urlCol, enrichCols, enrichIdToName);
-    if (Object.keys(data).length === 0) continue;
-    try {
-      await convex.mutation(internal.datasetRows.insert, {
-        datasetId,
-        data,
-        sources: itemSources(item),
-        rowSummary: (item.properties?.description ?? "").slice(0, 200),
-        howFound: "Exa Websets (search + verify + enrich)",
-      });
-      inserted++;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/quota/i.test(msg)) {
-        log(logger, `quota exhausted after ${inserted} rows; stopping`);
-        break;
+    let quotaHit = false;
+    for (const item of items) {
+      if (inserted >= maxRowCount) break;
+      if (insertedIds.has(item.id)) continue;
+      if ((item.enrichments ?? []).length < nEnrich) continue; // not ready yet
+      const data = itemToRow(item, urlCol, enrichCols, enrichIdToName);
+      if (Object.keys(data).length === 0) {
+        insertedIds.add(item.id);
+        continue;
       }
-      // Duplicate or per-row validation issue: skip this item, keep going.
-      log(logger, `skipped one item: ${msg.slice(0, 120)}`);
+      try {
+        await convex.mutation(internal.datasetRows.insert, {
+          datasetId,
+          data,
+          sources: itemSources(item),
+          rowSummary: (item.properties?.description ?? "").slice(0, 200),
+          howFound: "Exa Websets (search + verify + enrich)",
+        });
+        insertedIds.add(item.id);
+        inserted++;
+      } catch (err) {
+        insertedIds.add(item.id); // never retry the same item
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/quota/i.test(msg)) {
+          log(logger, `quota exhausted after ${inserted} rows; stopping`);
+          quotaHit = true;
+          break;
+        }
+        // Duplicate or per-row validation issue: skip and keep going.
+        log(logger, `skipped one item: ${msg.slice(0, 120)}`);
+      }
     }
+
+    log(
+      logger,
+      `status=${status} items=${items.length} inserted=${inserted} searchesDone=${searchesDone}`,
+    );
+
+    if (quotaHit || inserted >= maxRowCount || status === "idle") break;
+    // Search finished and every found item has been processed: nothing more is
+    // coming, so stop even if the webset has not flipped to idle yet.
+    if (searchesDone && items.every((it) => insertedIds.has(it.id))) break;
+    await sleep(POLL_MS);
   }
 
   log(logger, `done: inserted ${inserted} rows (webset status=${status})`);
