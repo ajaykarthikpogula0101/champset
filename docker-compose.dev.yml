@@ -42,6 +42,8 @@ services:
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
       CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      # Comma-separated Clerk user ids allowed to edit the app-wide model config.
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
       # Open-source web backend (SearXNG metasearch + Readability).
       SEARXNG_URL: http://searxng:8080
       # Transactional email — when unset, the email module no-ops.

@@ -78,7 +78,9 @@ const BACKEND_URL =
  * @param token - Clerk JWT obtained via getToken()
  * Throws if the request fails (network error, 401, 500).
  */
-export async function getModelConfig(token: string): Promise<EffectiveModelConfig> {
+export async function getModelConfig(
+  token: string,
+): Promise<{ config: EffectiveModelConfig; isAdmin: boolean }> {
   const res = await fetch(`${BACKEND_URL}/settings/models`, {
     method: "GET",
     headers: {
@@ -94,7 +96,10 @@ export async function getModelConfig(token: string): Promise<EffectiveModelConfi
   }
 
   const data = await res.json();
-  return data.config;
+  // isAdmin is a UI convenience (show the editor vs a read-only view); the real
+  // boundary is the backend 403 on POST. Default false so the locked-down view
+  // is the safe default if the field is ever missing.
+  return { config: data.config, isAdmin: !!data.isAdmin };
 }
 
 /**

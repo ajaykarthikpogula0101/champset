@@ -22,6 +22,10 @@ export default function ModelSettingsPage() {
   const [sheetModels, setSheetModels] = useState<OpenRouterModel[]>([]);
   const [activeSheet, setActiveSheet] = useState<{ role: ModelRole } | null>(null);
   const [isSavingModel, setIsSavingModel] = useState(false);
+  // Whether this account may edit the app-wide model config. Default false so
+  // the read-only view is the safe default while loading or on error. This is a
+  // UI convenience only; the backend 403 is the real boundary.
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const isLoading = convexModels === undefined || isLoadingConfig;
 
@@ -31,8 +35,14 @@ export default function ModelSettingsPage() {
         if (!token) throw new Error("Not authenticated");
         return getModelConfig(token);
       })
-      .then((config) => setEffectiveConfig(config))
-      .catch(() => setEffectiveConfig(null))
+      .then(({ config, isAdmin: admin }) => {
+        setEffectiveConfig(config);
+        setIsAdmin(admin);
+      })
+      .catch(() => {
+        setEffectiveConfig(null);
+        setIsAdmin(false);
+      })
       .finally(() => setIsLoadingConfig(false));
   }, [getToken]);
 
@@ -51,6 +61,7 @@ export default function ModelSettingsPage() {
   }
 
   async function handleModelSelect(role: ModelRole, model: OpenRouterModel) {
+    if (!isAdmin) return; // defense in depth; the backend also returns 403
     setIsSavingModel(true);
     try {
       const token = await getToken();
@@ -68,6 +79,7 @@ export default function ModelSettingsPage() {
   }
 
   function openSideSheet(role: ModelRole) {
+    if (!isAdmin) return; // non-admins get a read-only view; the sheet never opens
     if (sheetModels.length === 0) {
       getOpenRouterModels()
         .then((models) => setSheetModels(models))
@@ -117,8 +129,18 @@ export default function ModelSettingsPage() {
     <SettingsPageLayout navItems={navItems}>
       <SettingsHeader
         title="Model Settings"
-        subtitle="Configure AI models for different tasks. Models are fetched from OpenRouter."
+        subtitle={
+          isAdmin
+            ? "Configure AI models for different tasks. Models are fetched from OpenRouter."
+            : "These are the AI models the workspace runs on."
+        }
       />
+
+      {!isLoading && !isAdmin && (
+        <div className="mb-3 rounded-lg border border-border bg-surface px-3 py-2 text-[13px] text-muted">
+          Models are managed by an administrator for everyone in this workspace.
+        </div>
+      )}
 
       <div className="space-y-2">
         {isLoading ? (
@@ -131,6 +153,7 @@ export default function ModelSettingsPage() {
               description={role.description}
               value={getSelectedModel(role)}
               onClick={() => openSideSheet(role)}
+              disabled={!isAdmin}
             />
           ))
         )}
@@ -163,6 +186,7 @@ export default function ModelSettingsPage() {
           }}
           isRefreshing={refreshing}
           isSaving={isSavingModel}
+          readOnly={!isAdmin}
         />
       )}
     </SettingsPageLayout>

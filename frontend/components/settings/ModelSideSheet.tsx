@@ -14,6 +14,10 @@ interface ModelSideSheetProps {
   onRefresh?: () => Promise<void>;
   isRefreshing?: boolean;
   isSaving?: boolean;
+  // Read-only view: model selection and catalog refresh are disabled. Used as
+  // defense in depth for non-admins; the page already prevents the sheet from
+  // opening for them, and the backend enforces the real boundary.
+  readOnly?: boolean;
 }
 
 function groupModelsByProvider(models: OpenRouterModel[]): Record<string, OpenRouterModel[]> {
@@ -68,6 +72,7 @@ export function ModelSideSheet({
   onRefresh,
   isRefreshing,
   isSaving,
+  readOnly = false,
 }: ModelSideSheetProps) {
   const [search, setSearch] = useState("");
   const panelRef = useRef<HTMLDivElement>(null);
@@ -117,7 +122,7 @@ export function ModelSideSheet({
         <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
           <h2 className="text-sm font-semibold text-foreground">{title}</h2>
           <div className="flex items-center gap-1">
-            {onRefresh && (
+            {onRefresh && !readOnly && (
               <button
                 onClick={onRefresh}
                 disabled={isRefreshing || isSaving}
@@ -190,7 +195,7 @@ export function ModelSideSheet({
                         <button
                           key={model.canonicalSlug}
                           onClick={() => onSelect(model.canonicalSlug)}
-                          disabled={isSaving}
+                          disabled={isSaving || readOnly}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors disabled:opacity-50 ${
                             isSelected
                               ? "bg-foreground/5"

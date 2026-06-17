@@ -9,6 +9,9 @@ interface SettingsTileProps {
   onClick: () => void;
   showTrailingButton?: boolean;
   trailingIcon?: React.ReactNode;
+  // Read-only tile: not clickable, no chevron affordance. Used for the model
+  // tiles shown to non-admins, who still SEE the active model but cannot change it.
+  disabled?: boolean;
 }
 
 export function SettingsTile({
@@ -18,12 +21,15 @@ export function SettingsTile({
   onClick,
   showTrailingButton = true,
   trailingIcon,
+  disabled = false,
 }: SettingsTileProps) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 16px 0" }}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      aria-disabled={disabled}
+      style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", padding: "16px 16px 16px 0", cursor: disabled ? "default" : "pointer" }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--foreground)", textAlign: "left" }}>{label}</p>
@@ -49,7 +55,9 @@ export function SettingsTile({
               <span style={{ fontSize: "12px", color: "var(--foreground)", fontWeight: 500, maxWidth: "140px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {value}
               </span>
-              <ChevronRight size={16} style={{ color: "var(--muted)", marginLeft: "4px", flexShrink: 0 }} />
+              {!disabled && (
+                <ChevronRight size={16} style={{ color: "var(--muted)", marginLeft: "4px", flexShrink: 0 }} />
+              )}
             </div>
           )}
           {trailingIcon && !value && (
@@ -57,7 +65,7 @@ export function SettingsTile({
               {trailingIcon}
             </div>
           )}
-          {!value && !trailingIcon && (
+          {!value && !trailingIcon && !disabled && (
             <ChevronRight size={16} style={{ color: "var(--muted)" }} />
           )}
         </div>

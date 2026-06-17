@@ -370,6 +370,49 @@ export const setStatusInternal = internalMutation({
   },
 });
 
+/**
+ * List datasets currently in an in-flight state ("building" or "updating").
+ *
+ * Used by the backend startup sweep to find runs that were orphaned when the
+ * server restarted mid-build (the workflow process died, so nothing ever moved
+ * the dataset out of "building"). The sweep runs before the server accepts
+ * traffic and before the refresh scheduler's first tick, so any row this
+ * returns is necessarily a pre-restart orphan, not a freshly started run.
+ */
+export const listStuckRunsInternal = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const all = await ctx.db.query("datasets").collect();
+    return all
+      .filter((d) => d.status === "building" || d.status === "updating")
+      .map((d) => ({ id: d._id, name: d.name, status: d.status }));
+  },
+});
+
+/**
+ * Mark one orphaned run as failed, but only if it is STILL in an in-flight
+ * state. The re-check inside the mutation is defense-in-depth: it guarantees we
+ * never clobber a run that legitimately started between the sweep's list call
+ * and this patch (the load-bearing guarantee is the backend boot ordering, but
+ * the compare-and-set protects a future multi-replica deploy too).
+ */
+export const failOrphanedRunInternal = internalMutation({
+  args: { id: v.id("datasets") },
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.id);
+    if (!doc) return { changed: false as const };
+    if (doc.status !== "building" && doc.status !== "updating") {
+      return { changed: false as const };
+    }
+    await ctx.db.patch(args.id, {
+      status: "failed",
+      lastStatusError:
+        "The server restarted while this Set was building. Press Build again to restart it.",
+    });
+    return { changed: true as const };
+  },
+});
+
 export const create = mutation({
   args: {
     name: v.string(),

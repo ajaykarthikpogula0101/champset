@@ -131,6 +131,51 @@ export async function getModelConfig(
 }
 
 /**
+ * App-wide model configuration key.
+ *
+ * Which models the whole app runs is a single shared setting controlled by
+ * admins, stored in the modelConfig table under this reserved userId. Keeping
+ * it global (rather than per-user) means every tester's runs use the same
+ * models, which is what keeps the blind A/B comparison fair. Per-user rows
+ * still exist and remain the substrate for a future BYOK path (a non-admin who
+ * brings their own OpenRouter key); they are NOT consulted on the default run
+ * path today.
+ */
+export const GLOBAL_CONFIG_KEY = "__global__";
+
+/**
+ * Resolve the app-wide model slugs that every run uses: the global admin row,
+ * falling back to the env defaults.
+ *
+ * The web engine is deliberately NOT read from the global row. `searchProvider`
+ * always comes from env.SEARCH_PROVIDER (owned-first), and an explicit
+ * per-dataset pin still overrides it at the call site. This prevents an admin
+ * model change from silently flipping the default engine for un-pinned Sets and
+ * corrupting the blind bake-off.
+ */
+export async function getGlobalModelConfig(): Promise<{
+  schemaInference: string;
+  populateOrchestrator: string;
+  investigateSubagent: string;
+  searchProvider: "searxng" | "exa";
+}> {
+  const config = await convex.query(internal.modelConfig.getInternal, {
+    userId: GLOBAL_CONFIG_KEY,
+  });
+  // BYOK future: a non-admin who supplies their own OpenRouter key would
+  // resolve their own per-user row here (gated on a userHasOwnKey(userId)
+  // predicate, not on admin) before falling back to this global row. Not built.
+  return {
+    schemaInference: config?.schemaInference ?? DEFAULT_MODEL_IDS.SCHEMA_INFERENCE,
+    populateOrchestrator:
+      config?.populateOrchestrator ?? DEFAULT_MODEL_IDS.POPULATE_ORCHESTRATOR,
+    investigateSubagent:
+      config?.investigateSubagent ?? DEFAULT_MODEL_IDS.INVESTIGATE_SUBAGENT,
+    searchProvider: env.SEARCH_PROVIDER as "searxng" | "exa",
+  };
+}
+
+/**
  * Fetch models from OpenRouter REST API and return parsed models ready
  * for Convex storage.
  */
