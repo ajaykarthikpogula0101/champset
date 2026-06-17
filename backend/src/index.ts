@@ -40,6 +40,30 @@ type UpdateWorkflowRun = Awaited<ReturnType<typeof updateWorkflow.createRun>>;
 
 function statusErrorMessage(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
+  const lower = message.toLowerCase();
+
+  // Map common upstream AI failures to messages a non-engineer tester can act
+  // on. The raw provider strings ("Key limit exceeded (weekly limit)",
+  // "Populate workflow completed with 0 rows") are accurate but cryptic, and
+  // the "0 rows" one in particular masks the real cause (the agent could not
+  // make a single model call because the shared AI budget was spent).
+  if (
+    lower.includes("key limit exceeded") ||
+    lower.includes("weekly limit") ||
+    (lower.includes("limit") && lower.includes("exceeded"))
+  ) {
+    return "The shared AI budget for this period has been reached, so the builder could not run. Please try again later or contact the admin (deep@championsmail.com).";
+  }
+  if (lower.includes("insufficient") && lower.includes("credit")) {
+    return "The AI account is out of credits. Please contact the admin (deep@championsmail.com).";
+  }
+  if (lower.includes("rate limit") || lower.includes("429")) {
+    return "The AI service is busy right now (rate limited). Please wait a moment and try building again.";
+  }
+  if (lower.includes("completed with 0 rows")) {
+    return "The builder finished without finding any rows. Try rephrasing the Set description to be more specific, or try the other variation.";
+  }
+
   return message.slice(0, 500);
 }
 
