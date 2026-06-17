@@ -53,11 +53,17 @@ export function DatasetCard({ dataset }: { dataset: DatasetCardData }) {
           <div className="px-5 py-3 border-t border-border flex items-center justify-between">
             <div className="flex items-center gap-3">
               <StatusBadge status={dataset.status} />
-              {dataset.searchProvider ? (
-                <span className="text-[11px] font-medium text-muted" title="Web engine used to build this Set">
-                  {dataset.searchProvider === "exa" ? "Exa" : "Proprietary"}
-                </span>
-              ) : null}
+              <span
+                className={[
+                  "text-[11px] font-medium px-1.5 py-0.5 rounded",
+                  dataset.searchProvider === "exa"
+                    ? "bg-accent text-accent-text"
+                    : "bg-surface text-muted border border-border",
+                ].join(" ")}
+                title="Web engine used to build this Set"
+              >
+                {dataset.searchProvider === "exa" ? "Exa" : "Proprietary"}
+              </span>
               <span className="text-[11px] text-muted">
                 {refreshCadenceLabel(dataset.refreshCadence)}
               </span>
