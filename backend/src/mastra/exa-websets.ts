@@ -120,36 +120,56 @@ function itemToRow(
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {};
   const props = item.properties ?? {};
+  // The entity block (e.g. props.company for a company, props.person for a
+  // person) holds clean, canonical fields. Prefer these over enrichments:
+  // asking Websets to "enrich" a field it already has (name, industry,
+  // location, about) tends to return a raw page snippet instead of the clean
+  // value, which is why Company Name was coming back as article text.
+  const entity = (props[props.type ?? ""] as Record<string, unknown>) ?? {};
 
   if (urlCol && props.url) data[urlCol.name] = props.url;
 
-  // Enrichment results: result is always string[] | null.
-  for (const e of item.enrichments ?? []) {
-    const name = enrichIdToName[e.enrichmentId];
-    if (!name) continue;
-    const val = Array.isArray(e.result)
-      ? e.result.filter(Boolean).join(", ")
-      : "";
-    if (val) data[name] = val;
-  }
-
-  // Fallbacks from the entity block (e.g. props.company.name / .location)
-  // for columns the enrichment left empty.
-  const entity = (props[props.type ?? ""] as Record<string, unknown>) ?? {};
+  // 1. Map columns to the entity's native fields where the column name makes
+  //    the intent clear. These take priority over any enrichment.
   for (const col of enrichCols) {
-    if (data[col.name] !== undefined && data[col.name] !== "") continue;
     const ln = col.name.toLowerCase();
     if (ln.includes("name") && typeof entity.name === "string")
       data[col.name] = entity.name;
     else if (
       (ln.includes("city") ||
         ln.includes("location") ||
-        ln.includes("headquarter")) &&
+        ln.includes("headquarter") ||
+        ln.includes("hq")) &&
       typeof entity.location === "string"
     )
       data[col.name] = entity.location;
-    else if (ln.includes("industry") && typeof entity.industry === "string")
+    else if (
+      (ln.includes("industry") || ln.includes("sector")) &&
+      typeof entity.industry === "string"
+    )
       data[col.name] = entity.industry;
+    else if (
+      (ln.includes("about") ||
+        ln.includes("description") ||
+        ln.includes("summary") ||
+        ln.includes("overview")) &&
+      (typeof entity.about === "string" ||
+        typeof props.description === "string")
+    )
+      data[col.name] =
+        (entity.about as string) || (props.description as string);
+  }
+
+  // 2. Fill any column still empty from its enrichment result. Enrichment
+  //    results are string[] | null (null when nothing was found).
+  for (const e of item.enrichments ?? []) {
+    const name = enrichIdToName[e.enrichmentId];
+    if (!name) continue;
+    if (data[name] !== undefined && data[name] !== "") continue;
+    const val = Array.isArray(e.result)
+      ? e.result.filter(Boolean).join(", ")
+      : "";
+    if (val) data[name] = val;
   }
 
   return data;
