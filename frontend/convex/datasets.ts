@@ -149,6 +149,30 @@ export const get = query({
 });
 
 /**
+ * Fetch a dataset for a specific user. Returns the dataset only if the user
+ * is the owner OR the dataset is public. Throws "Dataset not found" otherwise,
+ * matching the uniform error policy in lib/authz.ts (no existence oracle).
+ *
+ * Used by the backend's authenticated routes where the caller has admin auth
+ * but we need to verify user-level ownership before performing writes.
+ */
+export const getForUser = internalQuery({
+  args: { datasetId: v.id("datasets"), userId: v.string() },
+  handler: async (ctx, args) => {
+    const dataset = await ctx.db.get(args.datasetId);
+    if (!dataset) {
+      throw new Error("Dataset not found");
+    }
+    const isPublic = dataset.visibility === "public";
+    const isOwner = dataset.ownerId === args.userId;
+    if (!isPublic && !isOwner) {
+      throw new Error("Dataset not found");
+    }
+    return dataset;
+  },
+});
+
+/**
  * Admin-only fetch by id. No authz — returns the raw doc or null. Used
  * by the backend after a populate workflow completes to verify the
  * dataset still exists (delete-race protection) and read its CURRENT

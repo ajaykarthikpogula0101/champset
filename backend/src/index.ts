@@ -15,6 +15,7 @@ import { datasetReadyTemplate } from "./email/templates/dataset-ready.js";
 import { capture, shutdown as shutdownAnalytics } from "./analytics/posthog.js";
 import { EVENTS } from "./analytics/events.js";
 import { registerDataset, deregisterDataset, abortDataset } from "./abort-registry.js";
+import { registerScrapeRoutes } from "./routes/scrape-sources.js";
 
 /** Domain part of an email, for analytics (we never log full addresses). */
 function emailDomain(email: string): string {
@@ -1102,6 +1103,9 @@ await fastify.register(async (instance) => {
       return reply.code(502).send({ error: "Failed to stop dataset run. Please try again." });
     }
   });
+
+  // ─── Web-scraping data sources (LakeStream) ───────────────────
+  await registerScrapeRoutes(instance);
 });
 
 try {

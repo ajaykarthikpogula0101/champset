@@ -95,4 +95,7 @@ export const env = {
     "REFRESH_SCHEDULER_STALE_AFTER_MS",
     6 * 60 * 60 * 1000,
   ),
+
+  // LakeStream — external scraper service for web-scraping data sources.
+  LAKESTREAM_URL: process.env.LAKESTREAM_URL || "http://localhost:3001",
 };

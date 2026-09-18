@@ -84,6 +84,35 @@ export default defineSchema({
     .index("by_seed_key", ["seedKey"])
     .index("by_refresh_due", ["refreshEnabled", "nextRefreshAt"]),
 
+  scrapeSources: defineTable({
+    datasetId: v.id("datasets"),
+    url: v.string(),
+    source_name: v.string(),
+    extraction_schema: v.optional(v.any()),
+    extraction_prompt: v.optional(v.string()),
+    mode: v.optional(
+      v.union(
+        v.literal("css"),
+        v.literal("ai"),
+        v.literal("auto"),
+        v.literal("prompt"),
+      ),
+    ),
+    field_map: v.optional(v.record(v.string(), v.string())),
+    constants: v.optional(v.record(v.string(), v.string())),
+    enabled: v.boolean(),
+    added_by: v.string(),
+    added_at: v.number(),
+    lastRunAt: v.optional(v.number()),
+    lastRunStatus: v.optional(
+      v.union(v.literal("success"), v.literal("error")),
+    ),
+    lastRunError: v.optional(v.string()),
+    lastRunRowsWritten: v.optional(v.number()),
+  })
+    .index("by_dataset", ["datasetId"])
+    .index("by_dataset_enabled", ["datasetId", "enabled"]),
+
   datasetRows: defineTable({
     datasetId: v.id("datasets"),
     data: v.record(v.string(), v.any()),
