@@ -30,6 +30,10 @@ The schema inference pipeline: frontend calls `POST /infer-schema` → Fastify v
 
 The populate pipeline: frontend calls `POST /populate` with `{ datasetId, datasetName, description, columns }` → Fastify verifies the Clerk JWT → triggers `populateWorkflow` which: (1) clears existing rows, (2) builds a prompt from the schema, (3) runs the populate agent (Claude Sonnet 4.6) which searches the web via the self-hosted SearXNG backend (or Exa when that engine is selected), then inserts rows into Convex one by one. Rows appear in realtime on the frontend via Convex reactive queries.
 
+The blog scrape pipeline (optional): a dataset can have `scrapeSources` (blog/domain URLs, `frontend/convex/scrapeSources.ts`). Frontend calls `POST /datasets/:datasetId/scrape` → Fastify starts a LakeStream blog job per enabled source (`POST /api/scrape/execute` with `data_types: ["blog_url","article"]`), records `running`, then a detached finalizer polls `/api/scrape/status/{jobId}`, fetches articles from `/api/exports/json/{jobId}` (needs `LAKESTREAM_API_KEY`), maps them onto the dataset's columns via `backend/src/pipeline/row-mapping.ts`, and inserts rows. LakeStream is a separate self-hosted service; in Docker the backend reaches a host-run instance at `host.docker.internal:3001`. Only blog functionality is integrated — do not add the generic single-URL extractor.
+
+Row accuracy scoring: `backend/src/pipeline/accuracy.ts` asks `ACCURACY_SCORING_MODEL` (OpenRouter; must return logprobs) to grade a row 0-9, converts the digit-token distribution from `top_logprobs` into an expected 0-100 value, and stores it as `datasetRows.accuracyScore`. The OpenRouter AI SDK provider does not forward logprobs into `providerMetadata`, so the scorer calls the chat-completions HTTP API directly (do not try to read logprobs off `generateText`). Wired into `insert_row`/`update_row` (agent) and the LakeStream blog finalizer. Rendered as a fixed "Accuracy Score" column on the dataset page and compare page, and included in CSV/XLSX exports. Scoring failure is non-fatal: the row is inserted without a score.
+
 Convex functions use `ctx.auth.getUserIdentity()` to get the authenticated user. The `ownerId` field on datasets stores `identity.subject` (Clerk user ID). Do not pass `ownerId` from the client.
 
 ## Environment Variables
@@ -39,6 +43,8 @@ Root `.env` is the only local env file. Docker Compose, package scripts, and Con
 - `OPENROUTER_API_KEY` — used by backend and Mastra for AI model calls
 - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` — shared by frontend and backend
 - `CONVEX_SELF_HOSTED_ADMIN_KEY` — used by backend for system-level Convex writes
+- `ACCURACY_SCORING_MODEL` — model that grades each generated row from logprobs (default `openai/gpt-4o-mini`; must support logprobs)
+- `LAKESTREAM_URL` / `LAKESTREAM_API_KEY` — optional blog scraping. `LAKESTREAM_API_KEY` is required to import articles; inside Docker the URL defaults to `http://host.docker.internal:3001` (override with `LAKESTREAM_URL_DOCKER`).
 
 The backend container maps `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` → `CLERK_PUBLISHABLE_KEY` (see `docker-compose.dev.yml`).
 

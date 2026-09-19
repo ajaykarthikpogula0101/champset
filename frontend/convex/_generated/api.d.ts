@@ -18,6 +18,7 @@ import type * as openRouterModels from "../openRouterModels.js";
 import type * as publicSeed from "../publicSeed.js";
 import type * as quota from "../quota.js";
 import type * as runStats from "../runStats.js";
+import type * as scrapeSources from "../scrapeSources.js";
 
 import type {
   ApiFromModules,
@@ -36,6 +37,7 @@ declare const fullApi: ApiFromModules<{
   publicSeed: typeof publicSeed;
   quota: typeof quota;
   runStats: typeof runStats;
+  scrapeSources: typeof scrapeSources;
 }>;
 
 /**

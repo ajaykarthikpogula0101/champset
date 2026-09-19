@@ -96,6 +96,15 @@ export const env = {
     6 * 60 * 60 * 1000,
   ),
 
-  // LakeStream — external scraper service for web-scraping data sources.
+  // LakeStream — external blog scraper (discover + extract blog articles).
   LAKESTREAM_URL: process.env.LAKESTREAM_URL || "http://localhost:3001",
+  // Sent as X-API-Key. Required to fetch scrape results from LakeStream's
+  // /api/exports endpoint (execute/status are public, exports are not).
+  LAKESTREAM_API_KEY: process.env.LAKESTREAM_API_KEY,
+
+  // Model used to grade each generated row's accuracy from token logprobs.
+  // Must be a model that returns logprobs via OpenRouter (e.g. OpenAI models);
+  // the default chat models may not. Env-only for now (not per-user).
+  ACCURACY_SCORING_MODEL:
+    process.env.ACCURACY_SCORING_MODEL || "openai/gpt-4o-mini",
 };

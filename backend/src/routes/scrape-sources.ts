@@ -1,29 +1,35 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { convex, internal } from "../convex.js";
-import { extractFromUrl, pingLakeStream } from "../lakestream/client.js";
 import {
-  mapItemToRow,
-  toItems,
-  isWritableRow,
-  findUnmappedColumns,
-  findUnusedExtractedKeys,
-} from "../pipeline/row-mapping.js";
+  getBlogArticles,
+  lakeStreamDomain,
+  pingLakeStream,
+  startBlogScrape,
+  waitForScrape,
+} from "../lakestream/client.js";
+import { mapItemToRow, isWritableRow } from "../pipeline/row-mapping.js";
+import type { Column } from "../pipeline/row-mapping.js";
+import { scoreRow } from "../pipeline/accuracy.js";
 
 /**
- * Register scrape-source routes inside the authenticated route group.
+ * Blog scraping sources backed by LakeStream.
  *
- * Caller must have already applied the `requireAuth` preHandler.
+ * A source is a blog/domain URL. Running it starts a LakeStream job that
+ * discovers the site's blog articles and extracts each one; the extracted
+ * articles are then mapped onto the dataset's columns and inserted as rows.
+ *
+ * Register these routes inside the authenticated route group. Caller must
+ * have already applied the `requireAuth` preHandler.
  */
 export async function registerScrapeRoutes(
   instance: FastifyInstance,
 ): Promise<void> {
-  // ─── List sources for a dataset ───────────────────────────────
+  // ─── List blog sources for a dataset ──────────────────────────
   instance.get("/datasets/:datasetId/sources", async (req, reply) => {
     const { datasetId } = req.params as { datasetId: string };
     const userId = req.auth!.userId;
 
     try {
-      // Authorize via getForUser
       const dataset = await convex.query(internal.datasets.getForUser, {
         datasetId,
         userId,
@@ -42,21 +48,19 @@ export async function registerScrapeRoutes(
       if (msg.includes("not found") || msg.includes("Dataset not found")) {
         return reply.code(404).send({ error: "Dataset not found" });
       }
-      req.log.error(err, "Failed to list scrape sources");
+      req.log.error(err, "Failed to list blog sources");
       return reply.code(500).send({ error: "Failed to list sources" });
     }
   });
 
-  // ─── Create a source ──────────────────────────────────────────
+  // ─── Create a blog source ─────────────────────────────────────
   instance.post("/datasets/:datasetId/sources", async (req, reply) => {
     const { datasetId } = req.params as { datasetId: string };
     const userId = req.auth!.userId;
     const body = req.body as {
       url?: string;
       source_name?: string;
-      extraction_schema?: unknown;
-      extraction_prompt?: string;
-      mode?: "css" | "ai" | "auto" | "prompt";
+      max_pages?: number;
       field_map?: Record<string, string>;
       constants?: Record<string, string>;
       enabled?: boolean;
@@ -68,15 +72,15 @@ export async function registerScrapeRoutes(
     if (!body?.source_name || typeof body.source_name !== "string") {
       return reply.code(400).send({ error: "source_name is required" });
     }
-    if (!body.extraction_schema && !body.extraction_prompt) {
-      return reply
-        .code(400)
-        .send({
-          error: "Either extraction_schema or extraction_prompt must be provided",
-        });
+    if (body.max_pages !== undefined) {
+      const n = body.max_pages;
+      if (!Number.isInteger(n) || n < 1 || n > 500) {
+        return reply
+          .code(400)
+          .send({ error: "max_pages must be between 1 and 500" });
+      }
     }
 
-    // Validate URL parses and is http/https
     try {
       const parsed = new URL(body.url);
       if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -89,7 +93,6 @@ export async function registerScrapeRoutes(
     }
 
     try {
-      // Authorize via getForUser
       const dataset = await convex.query(internal.datasets.getForUser, {
         datasetId,
         userId,
@@ -102,9 +105,7 @@ export async function registerScrapeRoutes(
         datasetId,
         url: body.url.trim(),
         source_name: body.source_name.trim(),
-        extraction_schema: body.extraction_schema,
-        extraction_prompt: body.extraction_prompt,
-        mode: body.mode,
+        max_pages: body.max_pages,
         field_map: body.field_map,
         constants: body.constants,
         enabled: body.enabled ?? true,
@@ -116,29 +117,26 @@ export async function registerScrapeRoutes(
       if (msg.includes("not found") || msg.includes("Dataset not found")) {
         return reply.code(404).send({ error: "Dataset not found" });
       }
-      if (msg.includes("Invalid") || msg.includes("must be provided")) {
+      if (msg.includes("Invalid") || msg.includes("must be")) {
         return reply.code(400).send({ error: msg });
       }
-      req.log.error(err, "Failed to create scrape source");
+      req.log.error(err, "Failed to create blog source");
       return reply.code(500).send({ error: "Failed to create source" });
     }
   });
 
-  // ─── Update a source ──────────────────────────────────────────
+  // ─── Update a blog source ─────────────────────────────────────
   instance.patch("/sources/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as {
       url?: string;
       source_name?: string;
-      extraction_schema?: unknown;
-      extraction_prompt?: string;
-      mode?: "css" | "ai" | "auto" | "prompt";
+      max_pages?: number;
       field_map?: Record<string, string>;
       constants?: Record<string, string>;
       enabled?: boolean;
     };
 
-    // Validate URL if provided
     if (body.url) {
       try {
         const parsed = new URL(body.url);
@@ -149,6 +147,14 @@ export async function registerScrapeRoutes(
         }
       } catch {
         return reply.code(400).send({ error: "Invalid URL" });
+      }
+    }
+    if (body.max_pages !== undefined) {
+      const n = body.max_pages;
+      if (!Number.isInteger(n) || n < 1 || n > 500) {
+        return reply
+          .code(400)
+          .send({ error: "max_pages must be between 1 and 500" });
       }
     }
 
@@ -163,15 +169,15 @@ export async function registerScrapeRoutes(
       if (msg.includes("not found")) {
         return reply.code(404).send({ error: "Source not found" });
       }
-      if (msg.includes("Invalid") || msg.includes("must be provided")) {
+      if (msg.includes("Invalid") || msg.includes("must be")) {
         return reply.code(400).send({ error: msg });
       }
-      req.log.error(err, "Failed to update scrape source");
+      req.log.error(err, "Failed to update blog source");
       return reply.code(500).send({ error: "Failed to update source" });
     }
   });
 
-  // ─── Delete a source ──────────────────────────────────────────
+  // ─── Delete a blog source ─────────────────────────────────────
   instance.delete("/sources/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
 
@@ -183,7 +189,7 @@ export async function registerScrapeRoutes(
       if (msg.includes("not found")) {
         return reply.code(404).send({ error: "Source not found" });
       }
-      req.log.error(err, "Failed to delete scrape source");
+      req.log.error(err, "Failed to delete blog source");
       return reply.code(500).send({ error: "Failed to delete source" });
     }
   });
@@ -200,102 +206,12 @@ export async function registerScrapeRoutes(
       if (msg.includes("not found")) {
         return reply.code(404).send({ error: "Source not found" });
       }
-      req.log.error(err, "Failed to toggle scrape source");
+      req.log.error(err, "Failed to toggle blog source");
       return reply.code(500).send({ error: "Failed to toggle source" });
     }
   });
 
-  // ─── Preview: dry-run extraction ──────────────────────────────
-  instance.post("/datasets/:datasetId/sources/preview", async (req, reply) => {
-    const { datasetId } = req.params as { datasetId: string };
-    const userId = req.auth!.userId;
-    const body = req.body as {
-      url: string;
-      extraction_schema?: unknown;
-      extraction_prompt?: string;
-      mode?: "css" | "ai" | "auto" | "prompt";
-      field_map?: Record<string, string>;
-      constants?: Record<string, string>;
-    };
-
-    if (!body?.url) {
-      return reply.code(400).send({ error: "url is required" });
-    }
-
-    try {
-      // Authorize via getForUser
-      const dataset = await convex.query(internal.datasets.getForUser, {
-        datasetId,
-        userId,
-      });
-      if (!dataset) {
-        return reply.code(404).send({ error: "Dataset not found" });
-      }
-
-      if (!dataset.columns || dataset.columns.length === 0) {
-        return reply
-          .code(400)
-          .send({ error: "Dataset has no columns defined" });
-      }
-
-      // Extract from URL
-      const result = await extractFromUrl(body.url, {
-        schema: body.extraction_schema as Parameters<
-          typeof extractFromUrl
-        >[1]["schema"],
-        prompt: body.extraction_prompt,
-        mode: body.mode,
-      });
-
-      if (!result.success) {
-        return reply.code(422).send({
-          error: result.error ?? "Extraction failed",
-          raw_items: [],
-          mapped_rows: [],
-          unmapped_columns: dataset.columns.map(
-            (c: { name: string }) => c.name,
-          ),
-          unused_extracted_keys: [],
-        });
-      }
-
-      const items = toItems(result.data);
-
-      // Map each item
-      const mappedRows = items.map((item) =>
-        mapItemToRow(item, dataset.columns, {
-          fieldMap: body.field_map,
-          constants: body.constants,
-        }),
-      );
-
-      const unmappedColumns = findUnmappedColumns(dataset.columns, items);
-      const unusedExtractedKeys = findUnusedExtractedKeys(
-        dataset.columns,
-        items,
-        body.field_map,
-      );
-
-      return {
-        raw_items: items,
-        mapped_rows: mappedRows,
-        unmapped_columns: unmappedColumns,
-        unused_extracted_keys: unusedExtractedKeys,
-        mode: result.mode,
-        fields_found: result.fields_found,
-        fields_missing: result.fields_missing,
-      };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("not found") || msg.includes("Dataset not found")) {
-        return reply.code(404).send({ error: "Dataset not found" });
-      }
-      req.log.error(err, "Preview extraction failed");
-      return reply.code(500).send({ error: "Preview failed" });
-    }
-  });
-
-  // ─── Scrape run: process all enabled sources ──────────────────
+  // ─── Scrape run: start a LakeStream blog job per enabled source ─
   instance.post("/datasets/:datasetId/scrape", async (req, reply) => {
     const { datasetId } = req.params as { datasetId: string };
     const userId = req.auth!.userId;
@@ -324,187 +240,213 @@ export async function registerScrapeRoutes(
       );
 
       if (sources.length === 0) {
-        return {
-          success: true,
-          sourcesRun: 0,
-          failed: 0,
-          rowsWritten: 0,
-          rowLimitReached: false,
-          results: [],
-        };
+        return { success: true, sourcesRun: 0, jobs: [] };
       }
 
-      const columns = dataset.columns as Array<{
-        name: string;
-        type: string;
-        isPrimaryKey?: boolean;
-      }>;
-      const results: Array<{
+      const columns = dataset.columns as Column[];
+      const jobs: Array<{
         sourceId: string;
         sourceName: string;
-        url: string;
-        success: boolean;
-        rowsExtracted: number;
-        rowsWritten: number;
-        duplicates: number;
-        skipped: number;
+        jobId?: string;
         error?: string;
       }> = [];
-      let totalRowsWritten = 0;
-      let totalFailed = 0;
-      let rowLimitReached = false;
 
       for (const source of sources) {
-        const sourceResult = {
-          sourceId: source._id,
-          sourceName: source.source_name,
-          url: source.url,
-          success: false,
-          rowsExtracted: 0,
-          rowsWritten: 0,
-          duplicates: 0,
-          skipped: 0,
-          error: undefined as string | undefined,
-        };
+        const started = await startBlogScrape(lakeStreamDomain(source.url), {
+          maxPages: source.max_pages,
+        });
 
-        try {
-          // Extract from URL
-          const extraction = await extractFromUrl(source.url, {
-            schema: source.extraction_schema,
-            prompt: source.extraction_prompt,
-            mode: source.mode,
-          });
-
-          if (!extraction.success) {
-            sourceResult.error = extraction.error ?? "Extraction failed";
-            sourceResult.success = false;
-            results.push(sourceResult);
-            totalFailed++;
-
-            // Record failed run
-            try {
-              await convex.mutation(internal.scrapeSources.recordRun, {
-                id: source._id,
-                status: "error",
-                error: sourceResult.error,
-                rowsWritten: 0,
-              });
-            } catch {
-              // Best effort telemetry — don't fail the request
-            }
-            continue;
-          }
-
-          const items = toItems(extraction.data);
-          sourceResult.rowsExtracted = items.length;
-
-          let written = 0;
-          let duplicates = 0;
-          let skipped = 0;
-
-          for (const item of items) {
-            if (rowLimitReached) {
-              skipped++;
-              continue;
-            }
-
-            try {
-              const mapped = mapItemToRow(item, columns, {
-                fieldMap: source.field_map,
-                constants: source.constants,
-              });
-
-              if (!isWritableRow(mapped.data)) {
-                skipped++;
-                continue;
-              }
-
-              await convex.mutation(internal.datasetRows.insert, {
-                datasetId,
-                data: mapped.data,
-                sources: [source.url],
-                howFound: `scrape:${source.source_name}`,
-              });
-
-              written++;
-              totalRowsWritten++;
-            } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : String(err);
-              if (msg.startsWith("Duplicate:")) {
-                duplicates++;
-                sourceResult.duplicates++;
-              } else if (msg.includes("Row limit reached")) {
-                rowLimitReached = true;
-                skipped++;
-              } else {
-                // Unknown error on this item — count as skipped, continue
-                skipped++;
-                req.log.warn(
-                  { err, sourceId: source._id, url: source.url },
-                  "Row insert failed (non-duplicate, non-limit)",
-                );
-              }
-            }
-          }
-
-          sourceResult.success = true;
-          sourceResult.rowsWritten = written;
-          sourceResult.skipped = skipped;
-          sourceResult.duplicates = duplicates;
-
-          // Record successful run
-          try {
-            await convex.mutation(internal.scrapeSources.recordRun, {
-              id: source._id,
-              status: "success",
-              rowsWritten: written,
-            });
-          } catch {
-            // Best effort telemetry
-          }
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          sourceResult.error = msg;
-          sourceResult.success = false;
-          totalFailed++;
-
-          // Record failed run
+        if (!started.success || !started.jobId) {
           try {
             await convex.mutation(internal.scrapeSources.recordRun, {
               id: source._id,
               status: "error",
-              error: msg,
-              rowsWritten: 0,
+              error: started.error ?? "Failed to start LakeStream job",
             });
           } catch {
             // Best effort telemetry
           }
+          jobs.push({
+            sourceId: source._id,
+            sourceName: source.source_name,
+            error: started.error ?? "Failed to start LakeStream job",
+          });
+          continue;
         }
 
-        results.push(sourceResult);
+        const jobId = started.jobId;
+
+        try {
+          await convex.mutation(internal.scrapeSources.recordRun, {
+            id: source._id,
+            status: "running",
+            jobId,
+          });
+        } catch {
+          // Best effort telemetry
+        }
+
+        jobs.push({
+          sourceId: source._id,
+          sourceName: source.source_name,
+          jobId,
+        });
+
+        // Finalize in the background: poll to completion, then import rows.
+        void finalizeSourceJob({
+          sourceId: source._id,
+          sourceName: source.source_name,
+          sourceUrl: source.url,
+          jobId,
+          datasetId,
+          datasetName: dataset.name,
+          datasetDescription: dataset.description,
+          columns,
+          fieldMap: source.field_map,
+          constants: source.constants,
+          log: req.log,
+        });
       }
 
       return {
-        success: totalFailed === 0,
+        success: jobs.every((job) => !job.error),
         sourcesRun: sources.length,
-        failed: totalFailed,
-        rowsWritten: totalRowsWritten,
-        rowLimitReached,
-        results,
+        jobs,
       };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("not found") || msg.includes("Dataset not found")) {
         return reply.code(404).send({ error: "Dataset not found" });
       }
-      req.log.error(err, "Scrape run failed");
+      req.log.error(err, "Blog scrape run failed");
       return reply.code(500).send({ error: "Scrape run failed" });
     }
   });
 
   // ─── LakeStream health check ──────────────────────────────────
-  instance.get("/lakestream/health", async (_req, reply) => {
+  instance.get("/lakestream/health", async (_req, _reply) => {
     const healthy = await pingLakeStream();
     return { healthy };
   });
+}
+
+/**
+ * Wait for a LakeStream blog job to finish, import its article records as
+ * dataset rows, then record the outcome on the source.
+ *
+ * Runs detached from the HTTP request. Idempotent-ish: re-importing the same
+ * job would be rejected by the dataset's duplicate check, not double-written.
+ */
+async function finalizeSourceJob(params: {
+  sourceId: string;
+  sourceName: string;
+  sourceUrl: string;
+  jobId: string;
+  datasetId: string;
+  datasetName?: string;
+  datasetDescription?: string;
+  columns: Column[];
+  fieldMap?: Record<string, string>;
+  constants?: Record<string, string>;
+  log: FastifyBaseLogger;
+}): Promise<void> {
+  const {
+    sourceId,
+    sourceName,
+    sourceUrl,
+    jobId,
+    datasetId,
+    datasetName,
+    datasetDescription,
+    columns,
+    fieldMap,
+    constants,
+    log,
+  } = params;
+
+  try {
+    const status = await waitForScrape(jobId);
+
+    if (status.status !== "completed") {
+      await recordRun(sourceId, "error", {
+        error: status.error ?? `LakeStream job ${status.status}`,
+      });
+      log.warn(
+        { sourceId, jobId, status: status.status },
+        "LakeStream blog job did not complete",
+      );
+      return;
+    }
+
+    const articles = await getBlogArticles(jobId);
+    let written = 0;
+
+    for (const article of articles) {
+      const item: Record<string, unknown> = {
+        ...article.metadata,
+        url: article.url,
+        title: article.title,
+        published_date: article.publishedDate,
+      };
+
+      const mapped = mapItemToRow(item, columns, { fieldMap, constants });
+      if (!isWritableRow(mapped.data)) continue;
+
+      const accuracyScore = await scoreRow({
+        datasetName,
+        description: datasetDescription,
+        columns,
+        data: mapped.data,
+        sources: [sourceUrl],
+      });
+
+      try {
+        await convex.mutation(internal.datasetRows.insert, {
+          datasetId,
+          data: mapped.data,
+          sources: [sourceUrl],
+          howFound: `blog:${sourceName}`,
+          ...(accuracyScore !== undefined ? { accuracyScore } : {}),
+        });
+        written++;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Duplicates and row-limit rejections are expected; anything else is
+        // logged but doesn't abort the remaining articles.
+        if (!msg.startsWith("Duplicate:") && !msg.includes("Row limit reached")) {
+          log.warn(
+            { err, sourceId, jobId, articleUrl: article.url },
+            "Blog row insert failed",
+          );
+        }
+      }
+    }
+
+    await recordRun(sourceId, "success", { rowsWritten: written });
+    log.info(
+      { sourceId, jobId, articles: articles.length, written },
+      "LakeStream blog job imported",
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    log.error({ err, sourceId, jobId }, "Failed to finalize blog scrape job");
+    await recordRun(sourceId, "error", { error: msg });
+  }
+}
+
+async function recordRun(
+  sourceId: string,
+  status: "success" | "error",
+  extra: { error?: string; rowsWritten?: number },
+): Promise<void> {
+  try {
+    await convex.mutation(internal.scrapeSources.recordRun, {
+      id: sourceId,
+      status,
+      error: extra.error,
+      rowsWritten: extra.rowsWritten,
+    });
+  } catch {
+    // Best effort telemetry — never fail the run over it
+  }
 }

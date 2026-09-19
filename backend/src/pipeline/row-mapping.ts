@@ -6,9 +6,9 @@
  * column declarations.
  */
 
-type ColumnType = "text" | "number" | "boolean" | "url" | "date";
+export type ColumnType = "text" | "number" | "boolean" | "url" | "date";
 
-interface Column {
+export interface Column {
   name: string;
   type: ColumnType;
   isPrimaryKey?: boolean;
@@ -22,24 +22,6 @@ interface MapOptions {
 interface MapResult {
   data: Record<string, unknown>;
   missingKeys: string[];
-}
-
-/**
- * Normalize an array-or-object response into an array.
- */
-export function toItems(
-  data: unknown,
-): Record<string, unknown>[] {
-  if (Array.isArray(data)) {
-    return data.filter(
-      (item): item is Record<string, unknown> =>
-        item !== null && typeof item === "object" && !Array.isArray(item),
-    );
-  }
-  if (data !== null && typeof data === "object" && !Array.isArray(data)) {
-    return [data as Record<string, unknown>];
-  }
-  return [];
 }
 
 /**
@@ -212,56 +194,3 @@ export function isWritableRow(row: Record<string, unknown>): boolean {
   return true;
 }
 
-/**
- * Identify columns that are declared in the dataset but not fed by any
- * extracted key across all items.
- */
-export function findUnmappedColumns(
-  columns: Column[],
-  items: Record<string, unknown>[],
-): string[] {
-  const allExtractedKeys = new Set<string>();
-  for (const item of items) {
-    for (const key of Object.keys(item)) {
-      allExtractedKeys.add(key.toLowerCase().replace(/[_\-\s]+/g, ""));
-    }
-  }
-
-  return columns
-    .filter((col) => {
-      const normalized = col.name.toLowerCase().replace(/[_\-\s]+/g, "");
-      return !allExtractedKeys.has(normalized);
-    })
-    .map((col) => col.name);
-}
-
-/**
- * Identify extracted keys that don't map to any declared column.
- */
-export function findUnusedExtractedKeys(
-  columns: Column[],
-  items: Record<string, unknown>[],
-  fieldMap?: Record<string, string>,
-): string[] {
-  const usedKeys = new Set<string>();
-
-  for (const column of columns) {
-    if (fieldMap && column.name in fieldMap) {
-      usedKeys.add(fieldMap[column.name].toLowerCase());
-    }
-    const normalized = column.name.toLowerCase().replace(/[_\-\s]+/g, "");
-    usedKeys.add(normalized);
-  }
-
-  const unused = new Set<string>();
-  for (const item of items) {
-    for (const key of Object.keys(item)) {
-      const normalized = key.toLowerCase().replace(/[_\-\s]+/g, "");
-      if (!usedKeys.has(normalized)) {
-        unused.add(key);
-      }
-    }
-  }
-
-  return Array.from(unused);
-}

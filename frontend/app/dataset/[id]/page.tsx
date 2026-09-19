@@ -23,6 +23,13 @@ import {
 } from "@/lib/refresh-cadence";
 import type { ProfileUser } from "@/lib/profile-user";
 
+const ACCURACY_COLUMN: DatasetColumn = {
+  name: "Accuracy Score",
+  type: "number",
+  description:
+    "Model confidence (0-100) derived from token logprobs when the row was generated.",
+};
+
 export default function DatasetPage() {
   const params = useParams();
   const { isLoading: authLoading, isAuthenticated } = useConvexAuth();
@@ -65,6 +72,18 @@ export default function DatasetPage() {
   const selection = useSelection(rowIds);
   const selectedCount = selection.selected.size;
 
+  // The accuracy score is a derived metric, not one of the dataset's own
+  // columns. Surface it as a fixed "Accuracy Score" column by folding it into
+  // the rows/columns handed to the table (and to the exporters).
+  const displayRows = useMemo(
+    () =>
+      (rows ?? []).map((r) => ({
+        ...r,
+        data: { ...r.data, [ACCURACY_COLUMN.name]: r.accuracyScore },
+      })),
+    [rows],
+  );
+
   const handlePopulate = useCallback(async () => {
     if (!dataset || populating || dataset.status === "building") return;
     // A new run is starting, discard any lingering stop-latch from the previous run.
@@ -100,7 +119,10 @@ export default function DatasetPage() {
 
   const handleCellExpand = useCallback((columnName: string, value: unknown, rowId: string) => {
     if (!dataset || !rows) return;
-    const col = dataset.columns.find((c) => c.name === columnName);
+    const col =
+      columnName === ACCURACY_COLUMN.name
+        ? ACCURACY_COLUMN
+        : dataset.columns.find((c) => c.name === columnName);
     if (!col) return;
     const row = rows.find((r) => r._id === rowId);
     setCellDetail({ column: col, value, sources: row?.sources });
@@ -135,16 +157,18 @@ export default function DatasetPage() {
 
     const exportRows =
       selectedCount > 0
-        ? rows.filter((r) => selection.selected.has(r._id))
-        : rows;
+        ? displayRows.filter((r) => selection.selected.has(r._id))
+        : displayRows;
     if (exportRows.length === 0) return;
+
+    const exportColumns = [...dataset.columns, ACCURACY_COLUMN];
 
     setExporting(format);
     try {
       if (format === "csv") {
-        downloadCSV(dataset.name, dataset.columns, exportRows);
+        downloadCSV(dataset.name, exportColumns, exportRows);
       } else {
-        await downloadXLSX(dataset.name, dataset.columns, exportRows);
+        await downloadXLSX(dataset.name, exportColumns, exportRows);
       }
       track(EVENTS.DATASET_EXPORTED, {
         format,
@@ -323,6 +347,7 @@ export default function DatasetPage() {
     refreshCadence: dataset.refreshCadence ?? "daily",
     refreshEnabled: dataset.refreshEnabled ?? true,
     maxRowCount: dataset.maxRowCount ?? 100,
+    columns: [...dataset.columns, ACCURACY_COLUMN],
   };
   const updateDisabled = updating || isDatasetBusy;
   const populateDisabled = populating || isDatasetBusy;
@@ -461,13 +486,13 @@ export default function DatasetPage() {
           )}
           <span>{rows.length} rows</span>
           <span className="text-foreground/10">|</span>
-          <span>{dataset.columns.length} columns</span>
+          <span>{displayDataset.columns.length} columns</span>
         </div>
       </div>
 
       <DatasetTable
         dataset={displayDataset}
-        rows={rows}
+        rows={displayRows}
         datasetId={datasetId}
         selection={selection}
         onCellExpand={handleCellExpand}

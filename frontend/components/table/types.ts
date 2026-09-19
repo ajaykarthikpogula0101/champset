@@ -30,4 +30,6 @@ export interface DatasetRow {
   data: Record<string, unknown>;
   sources?: string[];
   updateStatus?: "pending";
+  /** Model confidence (0-100) from token logprobs; rendered as "Accuracy Score". */
+  accuracyScore?: number;
 }

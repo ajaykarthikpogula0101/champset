@@ -86,26 +86,26 @@ export default defineSchema({
 
   scrapeSources: defineTable({
     datasetId: v.id("datasets"),
+    // Blog/domain URL. LakeStream crawls the hostname and discovers the
+    // site's blog articles from it.
     url: v.string(),
     source_name: v.string(),
-    extraction_schema: v.optional(v.any()),
-    extraction_prompt: v.optional(v.string()),
-    mode: v.optional(
-      v.union(
-        v.literal("css"),
-        v.literal("ai"),
-        v.literal("auto"),
-        v.literal("prompt"),
-      ),
-    ),
+    // Max pages LakeStream may crawl while discovering articles.
+    max_pages: v.optional(v.number()),
     field_map: v.optional(v.record(v.string(), v.string())),
     constants: v.optional(v.record(v.string(), v.string())),
     enabled: v.boolean(),
     added_by: v.string(),
     added_at: v.number(),
+    // LakeStream blog scrape job tracking.
+    lastJobId: v.optional(v.string()),
     lastRunAt: v.optional(v.number()),
     lastRunStatus: v.optional(
-      v.union(v.literal("success"), v.literal("error")),
+      v.union(
+        v.literal("running"),
+        v.literal("success"),
+        v.literal("error"),
+      ),
     ),
     lastRunError: v.optional(v.string()),
     lastRunRowsWritten: v.optional(v.number()),
@@ -121,6 +121,10 @@ export default defineSchema({
     howFound: v.optional(v.string()),
     updateStatus: v.optional(v.literal("pending")),
     scrapeScript: v.optional(v.string()),
+    // Model confidence (0-100) derived from token logprobs when the row was
+    // generated. Rendered as a fixed "Accuracy Score" column; not part of the
+    // dataset's own columns.
+    accuracyScore: v.optional(v.number()),
   })
     .index("by_dataset", ["datasetId"])
     // Compound index used by clearAllPendingUpdateStatus to scan only the rows

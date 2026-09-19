@@ -3,6 +3,7 @@ import { z } from "zod";
 import { convex, internal } from "../../convex.js";
 import { capture } from "../../analytics/posthog.js";
 import { EVENTS } from "../../analytics/events.js";
+import { scoreRow } from "../../pipeline/accuracy.js";
 import type { AuthContext } from "../workflows/populate.js";
 
 /**
@@ -121,6 +122,40 @@ export function buildPopulateTools(
   // entries can be grep'd together in the backend logs without parsing.
   const logCtx = `user=${authContext.authorizedUserId} run=${authContext.workflowRunId} dataset=${authorizedDatasetId}`;
 
+  // Dataset context for accuracy scoring, fetched lazily once per tool set.
+  // A failure degrades to scoring without column/description context.
+  let scoringContextPromise:
+    | Promise<{
+        datasetName?: string;
+        description?: string;
+        columns?: Array<{ name: string; type?: string; description?: string }>;
+      }>
+    | undefined;
+  const getScoringContext = () => {
+    if (!scoringContextPromise) {
+      scoringContextPromise = convex
+        .query(internal.datasets.getInternal, { id: authorizedDatasetId })
+        .then((raw) => {
+          const dataset = raw as {
+            name?: string;
+            description?: string;
+            columns?: Array<{
+              name: string;
+              type?: string;
+              description?: string;
+            }>;
+          } | null;
+          return {
+            datasetName: dataset?.name,
+            description: dataset?.description,
+            columns: dataset?.columns,
+          };
+        })
+        .catch(() => ({}));
+    }
+    return scoringContextPromise;
+  };
+
   const insertRowTool = createTool({
     id: "insert_row",
     description:
@@ -153,6 +188,11 @@ export function buildPopulateTools(
       console.log(
         `[insert_row] ${logCtx} cols=${Object.keys(cleanedData).length} sources=${sources?.length ?? 0}`,
       );
+      const accuracyScore = await scoreRow({
+        ...(await getScoringContext()),
+        data: cleanedData,
+        sources,
+      });
       try {
         await convex.mutation(internal.datasetRows.insert, {
           datasetId: authorizedDatasetId,
@@ -160,6 +200,7 @@ export function buildPopulateTools(
           ...(sources !== undefined ? { sources } : {}),
           ...(row_summary !== undefined ? { rowSummary: row_summary } : {}),
           ...(how_found !== undefined ? { howFound: how_found } : {}),
+          ...(accuracyScore !== undefined ? { accuracyScore } : {}),
         });
         return { success: true };
       } catch (err) {
@@ -287,6 +328,11 @@ export function buildPopulateTools(
       console.log(
         `[update_row] ${logCtx} row=${rowId} cols=${Object.keys(cleanedData).length}`,
       );
+      const accuracyScore = await scoreRow({
+        ...(await getScoringContext()),
+        data: cleanedData,
+        sources,
+      });
       try {
         await convex.mutation(internal.datasetRows.update, {
           id: rowId,
@@ -295,6 +341,7 @@ export function buildPopulateTools(
           ...(sources !== undefined ? { sources } : {}),
           ...(row_summary !== undefined ? { rowSummary: row_summary } : {}),
           ...(how_found !== undefined ? { howFound: how_found } : {}),
+          ...(accuracyScore !== undefined ? { accuracyScore } : {}),
         });
         return { success: true };
       } catch (err) {

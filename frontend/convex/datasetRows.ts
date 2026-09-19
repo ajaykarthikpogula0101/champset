@@ -68,6 +68,7 @@ export const insert = internalMutation({
     sources: v.optional(v.array(v.string())),
     rowSummary: v.optional(v.string()),
     howFound: v.optional(v.string()),
+    accuracyScore: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const dataset = await ctx.db.get(args.datasetId);
@@ -153,6 +154,7 @@ export const update = internalMutation({
     sources: v.optional(v.array(v.string())),
     rowSummary: v.optional(v.string()),
     howFound: v.optional(v.string()),
+    accuracyScore: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const existing = await assertRowInDataset(
@@ -185,6 +187,7 @@ export const update = internalMutation({
     if (args.sources !== undefined) patch.sources = args.sources;
     if (args.rowSummary !== undefined) patch.rowSummary = args.rowSummary;
     if (args.howFound !== undefined) patch.howFound = args.howFound;
+    if (args.accuracyScore !== undefined) patch.accuracyScore = args.accuracyScore;
     await ctx.db.patch(args.id, patch);
   },
 });

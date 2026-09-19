@@ -200,7 +200,7 @@ function SetPanel({ datasetId }: { datasetId: string }) {
           {variation}
         </span>
         <span className="text-[11px] text-muted">{rows.length} rows</span>
-        <span className="text-[11px] text-muted">{columns.length} columns</span>
+        <span className="text-[11px] text-muted">{columns.length + 1} columns</span>
       </div>
       <CompareTable columns={columns} rows={rows} />
     </div>
@@ -212,7 +212,11 @@ function CompareTable({
   rows,
 }: {
   columns: { name: string; type: string }[];
-  rows: Array<{ _id: string; data?: Record<string, unknown> }>;
+  rows: Array<{
+    _id: string;
+    data?: Record<string, unknown>;
+    accuracyScore?: number;
+  }>;
 }) {
   if (rows.length === 0) {
     return (
@@ -234,6 +238,12 @@ function CompareTable({
                 {c.name}
               </th>
             ))}
+            <th
+              className="border-b border-border px-2.5 py-1.5 text-left font-semibold text-muted whitespace-nowrap"
+              title="Model confidence (0-100) derived from token logprobs"
+            >
+              Accuracy Score
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -248,6 +258,9 @@ function CompareTable({
                   {cellText(row.data?.[c.name])}
                 </td>
               ))}
+              <td className="border-b border-border px-2.5 py-1.5 align-top text-foreground">
+                {row.accuracyScore ?? ""}
+              </td>
             </tr>
           ))}
         </tbody>
